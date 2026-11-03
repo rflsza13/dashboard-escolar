@@ -1,0 +1,450 @@
+export const DIAS = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
+export const DIAS_GRADE = ["Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
+export const INTERVALOS_GRADE = [
+  '09:00 - 10:30',
+  '10:30 - 12:00',
+  '14:00 - 15:30',
+  '16:00 - 17:30',
+  '18:00 - 19:30',
+  '19:00 - 20:30',
+];
+// Duração fixa das aulas: regulares/reposições/avulsas 1h30, experimentais 1h
+export const DURACAO_AULA = 90;
+export const DURACAO_EXPERIMENTAL = 60;
+export const duracaoDaAula = (tipo) => (tipo === "Experimental" ? DURACAO_EXPERIMENTAL : DURACAO_AULA);
+
+export const DIAS_LONGOS = { Seg: "Segunda", Ter: "Terça", Qua: "Quarta", Qui: "Quinta", Sex: "Sexta", Sáb: "Sábado", Dom: "Domingo" };
+
+export const DEFAULT_CONFIG = {
+  nomeEscola: "Escola",
+  pontosPadrao: 10,
+  rankingDias: 90,
+  gradeInicio: 7,
+  gradeFim: 21,
+  corOnline: "#2CD9FF",
+  corReposicao: "#FF8A3D",
+  corExperimental: "#FFD93D",
+  recursoPontos: true,
+  recursoProfessores: true,
+  recursoExperimentais: true,
+};
+
+// Bônus de pontos do "bom comportamento" ao concluir um módulo (o servidor usa o mesmo valor)
+export const BONUS_BOM_COMPORTAMENTO = 10;
+
+// Funcionalidades que podem ser ligadas/desligadas em Configurações (gravadas na aba Config como Sim/Não)
+export const RECURSOS = [
+  { chave: "recursoPontos", rotulo: "Pontos e recompensas", ajuda: "Menu Pontos e prêmios, pontos nas fichas, nos módulos e na conclusão de módulo." },
+  { chave: "recursoProfessores", rotulo: "Professores e escala", ajuda: "Menu Professores, nomes dos professores nas aulas e escala do dia no dashboard." },
+  { chave: "recursoExperimentais", rotulo: "Aulas experimentais", ajuda: "Opção de cadastrar aula experimental em Nova aula." },
+];
+export function recursoLigado(cfg, chave) {
+  const v = cfg ? cfg[chave] : undefined;
+  if (v === undefined || v === null || v === "") return true;
+  if (typeof v === "boolean") return v;
+  return !["não", "nao", "false", "0", "n"].includes(String(v).trim().toLowerCase());
+}
+
+const p2 = (n) => String(n).padStart(2, "0");
+
+/* ---------- datas (sempre em ISO "AAAA-MM-DD", no fuso local) ---------- */
+export const isoDe = (d) => `${d.getFullYear()}-${p2(d.getMonth() + 1)}-${p2(d.getDate())}`;
+export const dataDeIso = (iso) => {
+  const [y, m, d] = iso.split("-").map(Number);
+  return new Date(y, m - 1, d);
+};
+export const hojeIso = () => isoDe(new Date());
+export const somarDias = (iso, n) => {
+  const d = dataDeIso(iso);
+  d.setDate(d.getDate() + n);
+  return isoDe(d);
+};
+export const segundaDaSemana = (iso) => {
+  const d = dataDeIso(iso);
+  const dow = d.getDay();
+  d.setDate(d.getDate() + (dow === 0 ? -6 : 1 - dow));
+  return isoDe(d);
+};
+export const siglaDia = (iso) => DIAS[dataDeIso(iso).getDay()];
+export const formatarData = (iso) => {
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso || "");
+  return m ? `${m[3]}/${m[2]}/${m[1]}` : "";
+};
+export const formatarDataCurta = (iso) => {
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso || "");
+  return m ? `${m[3]}/${m[2]}` : "";
+};
+
+/* ---------- horas ("HH:MM") ---------- */
+export const horaParaMin = (h) => {
+  const m = /^(\d{1,2}):(\d{2})/.exec(h || "");
+  return m ? Number(m[1]) * 60 + Number(m[2]) : -1;
+};
+export const minParaHora = (min) => `${p2(Math.floor(min / 60) % 24)}:${p2(min % 60)}`;
+export const fimDaAula = (hora, duracao) => {
+  const ini = horaParaMin(hora);
+  return ini < 0 ? "" : minParaHora(ini + (Number(duracao) || DURACAO_AULA));
+};
+
+// Faixa da grade em que uma aula que começa em "hora" aparece: a faixa que contém o início
+// (se duas contêm, vale a que começa mais tarde, ex.: 19:00 → 19:00-20:30); senão, a de início mais próximo.
+export function faixaDaAula(hora) {
+  const min = horaParaMin(hora);
+  if (min < 0) return INTERVALOS_GRADE[0];
+  let melhor = null;
+  let melhorIni = -1;
+  INTERVALOS_GRADE.forEach((faixa) => {
+    const [a, b] = faixa.split(" - ");
+    const ini = horaParaMin(a);
+    if (min >= ini && min < horaParaMin(b) && ini > melhorIni) {
+      melhor = faixa;
+      melhorIni = ini;
+    }
+  });
+  if (melhor) return melhor;
+  let menor = Infinity;
+  INTERVALOS_GRADE.forEach((faixa) => {
+    const dif = Math.abs(min - horaParaMin(faixa.split(" - ")[0]));
+    if (dif < menor) {
+      menor = dif;
+      melhor = faixa;
+    }
+  });
+  return melhor;
+}
+
+export const novoId = (prefixo) => prefixo + Math.random().toString(36).slice(2, 8).toUpperCase();
+export const corValida = (c, fallback = "#8A8A8A") => (/^#[0-9a-fA-F]{6}$/.test(c || "") ? c : fallback);
+const mapa = (lista) => (lista || []).reduce((acc, x) => ({ ...acc, [x.id]: x }), {});
+
+/* ---------- cursos: tipo (cor/legenda) e área (filtro da grade e professores) ----------
+   Tipos: Programação, Robótica 1, Robótica 2 e Inglês (definidos pelo nome do curso; qualquer outro
+   curso conta como Programação). Cada tipo tem uma entrada na legenda, com a cor do primeiro curso do tipo.
+   Áreas: "Inglês" ou "Programação" (que reúne Programação e as Robóticas). O seletor da grade e a
+   escala dos professores usam a área. */
+export const CAT_PROGRAMACAO = "Programação";
+export const CAT_INGLES = "Inglês";
+export const CATEGORIAS = [CAT_PROGRAMACAO, CAT_INGLES];
+export const ROTULO_CATEGORIA = { [CAT_PROGRAMACAO]: "Programação / Robótica", [CAT_INGLES]: "Inglês" };
+// Na escala, a coluna cursoId guarda a área escolhida no formato "area:Programação" / "area:Inglês"
+// (horários antigos ainda podem trazer o ID de um curso; a área vem do curso).
+export const PREFIXO_AREA = "area:";
+export const valorDeArea = (area) => `${PREFIXO_AREA}${area}`;
+export function areaDaEscala(cursoId, cursos) {
+  const v = String(cursoId || "");
+  if (v.startsWith(PREFIXO_AREA)) {
+    const a = v.slice(PREFIXO_AREA.length);
+    return CATEGORIAS.includes(a) ? a : "";
+  }
+  const c = (cursos || {})[v];
+  return c ? categoriaDoCurso(c) : "";
+}
+
+export const TIPOS_CURSO = ["Programação", "Robótica 1", "Robótica 2", "Inglês"];
+
+export function tipoDoCurso(c) {
+  const txt = `${(c && c.nome) || ""} ${(c && c.grupo) || ""}`.toLowerCase();
+  if (/ingl[eê]s|english/.test(txt)) return "Inglês";
+  if (/rob[oó]tica/.test(txt)) return /(^|\D)2(\D|$)|\bii\b/.test(txt.replace(/rob[oó]tica/, "")) ? "Robótica 2" : "Robótica 1";
+  return "Programação";
+}
+
+export const categoriaDoCurso = (c) => (tipoDoCurso(c) === "Inglês" ? CAT_INGLES : CAT_PROGRAMACAO);
+
+export function cursosComCor(cursos) {
+  const lista = cursos || [];
+  const corDoTipo = {};
+  lista.forEach((c) => {
+    const k = tipoDoCurso(c);
+    if (!corDoTipo[k] && /^#[0-9a-fA-F]{6}$/.test(c.cor || "")) corDoTipo[k] = c.cor;
+  });
+  return lista.map((c) => {
+    const k = tipoDoCurso(c);
+    return { ...c, tipo: k, categoria: categoriaDoCurso(c), cor: corValida(corDoTipo[k] || c.cor) };
+  });
+}
+
+export function legendaDeCursos(cursos) {
+  const ativos = cursosComCor(cursos).filter((c) => c.ativo !== "Não");
+  return TIPOS_CURSO.map((k) => ({ chave: k, rotulo: k, cor: (ativos.find((c) => c.tipo === k) || {}).cor })).filter((l) => l.cor);
+}
+
+/* ---------- professores: escala semanal ---------- */
+export function blocosDaEscala(dados, cursosCor) {
+  const profs = mapa(dados.professores);
+  const cursos = mapa(cursosCor || cursosComCor(dados.cursos));
+  const base = (dados.escala || [])
+    .map((b) => {
+      const professor = profs[b.professorId];
+      if (!professor || professor.ativo === "Não") return null;
+      const categoria = areaDaEscala(b.cursoId, cursos);
+      return { ...b, professor, iniMin: horaParaMin(b.inicio), fimMin: horaParaMin(b.fim), categoria };
+    })
+    .filter((b) => b && b.iniMin >= 0 && b.fimMin > b.iniMin);
+  // horário sem curso: vale para as categorias dos outros horários do mesmo professor (não para todas)
+  const catsDoProf = {};
+  base.forEach((b) => {
+    if (b.categoria) catsDoProf[b.professorId] = [...new Set([...(catsDoProf[b.professorId] || []), b.categoria])];
+  });
+  return base.map((b) => ({ ...b, categorias: b.categoria ? [b.categoria] : catsDoProf[b.professorId] || CATEGORIAS }));
+}
+
+// nomes dos professores cuja escala cobre o dia/hora e a categoria do curso (Programação ou Inglês)
+export function professoresNoHorario(blocos, dia, hora, curso) {
+  const min = horaParaMin(hora);
+  if (min < 0) return [];
+  const cat = categoriaDoCurso(curso);
+  const nomes = [];
+  blocos.forEach((b) => {
+    if (b.dia !== dia || min < b.iniMin || min >= b.fimMin) return;
+    if (!b.categorias.includes(cat)) return;
+    if (!nomes.includes(b.professor.nome)) nomes.push(b.professor.nome);
+  });
+  return nomes;
+}
+
+// quem atende num dia (para o dashboard): [{ professor, faixas: [{ inicio, fim, curso }] }]
+export function escalaDoDia(dados, iso) {
+  const dia = siglaDia(iso);
+  const por = {};
+  blocosDaEscala(dados).forEach((b) => {
+    if (b.dia !== dia) return;
+    if (!por[b.professor.id]) por[b.professor.id] = { professor: b.professor, faixas: [] };
+    por[b.professor.id].faixas.push({ inicio: b.inicio, fim: b.fim, ini: b.iniMin, curso: b.categoria ? ROTULO_CATEGORIA[b.categoria] : "" });
+  });
+  return Object.values(por)
+    .map((x) => ({ ...x, faixas: x.faixas.sort((a, b) => a.ini - b.ini) }))
+    .sort((a, b) => a.faixas[0].ini - b.faixas[0].ini || a.professor.nome.localeCompare(b.professor.nome, "pt-BR"));
+}
+
+/* ---------- status ---------- */
+export const ehPresenca = (s) => s === "Presente" || s === "Reposição realizada";
+export const ehFalta = (s) => s === "Falta";
+export const marcada = (s) => ehPresenca(s) || ehFalta(s);
+
+/* ---------- sessões (aulas num período) ----------
+   Uma sessão é uma aula numa data. Vem de duas fontes:
+   - linhas da aba Aulas (qualquer tipo): têm status e podem ter hora própria;
+   - matrículas Ativas, que se repetem toda semana no mesmo dia/horário (status "Agendada"
+     enquanto ninguém registrar nada). */
+function criarSessao(m, aula, data, tipo, cfg, alunos, cursos, blocos, profs) {
+  const aluno = alunos[m.alunoId];
+  const curso = cursos[m.cursoId];
+  const modalidade = (aula && aula.modalidade) || m.modalidade || "Presencial";
+  let status = (aula && aula.status) || "Agendada";
+  if (tipo === "Reposição" && status === "Agendada") status = "Reposição agendada";
+  let cor = corValida(curso && curso.cor);
+  const tags = [];
+  if (tipo === "Experimental") tags.push("Experimental");
+  if (tipo === "Reposição") tags.push("Reposição");
+  if (tipo === "Avulsa") tags.push("Avulsa");
+  if (modalidade === "Online") tags.push("Online");
+  // cores fixas têm prioridade sobre a cor do curso: experimental > reposição > online
+  if (tipo === "Experimental") cor = corValida(cfg.corExperimental, "#FFD93D");
+  else if (tipo === "Reposição") cor = corValida(cfg.corReposicao, "#FF8A3D");
+  else if (modalidade === "Online") cor = corValida(cfg.corOnline, "#2CD9FF");
+  const hora = (aula && aula.hora) || m.inicio || "";
+  return {
+    chave: `${m.id}|${data}|${tipo}|${(aula && aula.id) || "x"}`,
+    data,
+    hora,
+    // aula experimental: vale o professor responsável escolhido no cadastro; as demais seguem a escala da grade
+    professorId: (aula && aula.professorId) || "",
+    professores: !recursoLigado(cfg, "recursoProfessores")
+      ? []
+      : tipo === "Experimental" && aula && aula.professorId && profs[aula.professorId]
+      ? [profs[aula.professorId].nome]
+      : professoresNoHorario(blocos, siglaDia(data), hora, curso),
+    duracao: duracaoDaAula(tipo),
+    categoria: categoriaDoCurso(curso),
+    matriculaId: m.id,
+    alunoId: m.alunoId,
+    aluno: aluno ? aluno.nome : "Aluno removido",
+    cursoId: m.cursoId,
+    curso: curso ? curso.nome : "Curso removido",
+    modalidade,
+    tipo,
+    status,
+    aulaId: aula ? aula.id : null,
+    moduloOrdem: (aula && aula.modulo) || m.moduloAtual || "",
+    reposicaoDe: (aula && aula.reposicaoDe) || "",
+    obs: (aula && aula.obs) || "",
+    cor,
+    tags,
+  };
+}
+
+export function montarSessoes(dados, deIso, ateIso) {
+  const cfg = { ...DEFAULT_CONFIG, ...(dados.config || {}) };
+  const alunos = mapa(dados.alunos);
+  const cursosCor = cursosComCor(dados.cursos);
+  const cursos = mapa(cursosCor);
+  const blocos = blocosDaEscala(dados, cursosCor);
+  const profs = mapa(dados.professores);
+  const mats = mapa(dados.matriculas);
+  const sessoes = [];
+  const cobertas = new Set();
+
+  (dados.aulas || []).forEach((a) => {
+    if (!a.data || a.data < deIso || a.data > ateIso) return;
+    const m = mats[a.matriculaId];
+    if (!m) return;
+    const tipo = a.tipo || "Regular";
+    if (tipo === "Regular") cobertas.add(`${a.matriculaId}|${a.data}`);
+    sessoes.push(criarSessao(m, a, a.data, tipo, cfg, alunos, cursos, blocos, profs));
+  });
+
+  for (let d = deIso; d <= ateIso; d = somarDias(d, 1)) {
+    const sigla = siglaDia(d);
+    (dados.matriculas || []).forEach((m) => {
+      if (m.status !== "Ativa" || m.dia !== sigla) return;
+      if (m.dataInicio && d < m.dataInicio) return;
+      if (cobertas.has(`${m.id}|${d}`)) return;
+      sessoes.push(criarSessao(m, null, d, "Regular", cfg, alunos, cursos, blocos, profs));
+    });
+  }
+
+  return sessoes.sort(
+    (a, b) =>
+      a.data.localeCompare(b.data) || horaParaMin(a.hora) - horaParaMin(b.hora) || a.aluno.localeCompare(b.aluno, "pt-BR")
+  );
+}
+
+/* ---------- indicadores ---------- */
+export function andamentoPorCurso(sessoes) {
+  const grupos = {};
+  sessoes.forEach((s) => {
+    if (!grupos[s.cursoId]) grupos[s.cursoId] = { cursoId: s.cursoId, curso: s.curso, total: 0, marcadas: 0, presentes: 0, faltas: 0, sessoes: [] };
+    const g = grupos[s.cursoId];
+    g.total += 1;
+    if (marcada(s.status)) g.marcadas += 1;
+    if (ehPresenca(s.status)) g.presentes += 1;
+    if (ehFalta(s.status)) g.faltas += 1;
+    g.sessoes.push(s);
+  });
+  return Object.values(grupos).sort((a, b) => horaParaMin(a.sessoes[0].hora) - horaParaMin(b.sessoes[0].hora));
+}
+
+export function rankingFaltas(dados, hoje, dias, limite = 8) {
+  const de = somarDias(hoje, -dias);
+  const mats = mapa(dados.matriculas);
+  const alunos = mapa(dados.alunos);
+  const porAluno = {};
+  (dados.aulas || []).forEach((a) => {
+    if (!a.data || a.data < de || a.data > hoje || !marcada(a.status)) return;
+    const m = mats[a.matriculaId];
+    if (!m) return;
+    if (!porAluno[m.alunoId]) porAluno[m.alunoId] = { alunoId: m.alunoId, nome: (alunos[m.alunoId] || {}).nome || "Aluno removido", faltas: 0, total: 0 };
+    porAluno[m.alunoId].total += 1;
+    if (ehFalta(a.status)) porAluno[m.alunoId].faltas += 1;
+  });
+  return Object.values(porAluno)
+    .filter((x) => x.faltas > 0)
+    .map((x) => ({ ...x, pct: x.total ? x.faltas / x.total : 0 }))
+    .sort((a, b) => b.faltas - a.faltas || b.pct - a.pct)
+    .slice(0, limite);
+}
+
+export function faltasSemReposicao(dados, hoje, dias = 60) {
+  const de = somarDias(hoje, -dias);
+  const comReposicao = new Set((dados.aulas || []).filter((a) => a.reposicaoDe).map((a) => a.reposicaoDe));
+  return (dados.aulas || []).filter(
+    (a) => ehFalta(a.status) && a.data >= de && a.data <= hoje && (a.tipo || "Regular") !== "Reposição" && !comReposicao.has(a.id)
+  );
+}
+
+export function saldoDePontos(pontos, alunoId) {
+  return (pontos || []).reduce((acc, p) => {
+    if (p.alunoId !== alunoId) return acc;
+    return acc + (p.tipo === "Resgate" ? -Number(p.pontos) : Number(p.pontos));
+  }, 0);
+}
+
+/* ---------- andamento do aluno ---------- */
+const MESES_CURTOS = ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"];
+
+export function indexarAulas(dados) {
+  const idx = {};
+  (dados.aulas || []).forEach((a) => {
+    if (!idx[a.matriculaId]) idx[a.matriculaId] = [];
+    idx[a.matriculaId].push(a);
+  });
+  return idx;
+}
+
+// Estado de cada módulo do curso para uma matrícula: concluído, atual ou pendente
+export function progressoMatricula(dados, mat) {
+  const modulos = (dados.modulos || []).filter((m) => m.cursoId === mat.cursoId).sort((a, b) => a.ordem - b.ordem);
+  const prog = (dados.progresso || []).filter((p) => p.matriculaId === mat.id);
+  const itens = modulos.map((modulo) => {
+    const reg = prog.find((p) => p.moduloId === modulo.id);
+    const concluido = !!reg || Number(modulo.ordem) < Number(mat.moduloAtual) || mat.status === "Concluída";
+    const estado = concluido ? "concluido" : Number(modulo.ordem) === Number(mat.moduloAtual) ? "atual" : "pendente";
+    return { modulo, estado, data: reg ? reg.concluidoEm : "" };
+  });
+  const concluidos = itens.filter((i) => i.estado === "concluido").length;
+  return {
+    itens,
+    concluidos,
+    total: itens.length,
+    pct: itens.length ? concluidos / itens.length : 0,
+    atual: itens.find((i) => i.estado === "atual") || null,
+  };
+}
+
+export function resumoAluno(dados, alunoId, idx) {
+  const cursos = mapa(cursosComCor(dados.cursos));
+  const mats = (dados.matriculas || []).filter((m) => m.alunoId === alunoId);
+  let presencas = 0;
+  let faltas = 0;
+  let reposicoes = 0;
+  const aulas = [];
+  mats.forEach((m) =>
+    (idx[m.id] || []).forEach((a) => {
+      aulas.push(a);
+      if (ehPresenca(a.status)) presencas += 1;
+      if (ehFalta(a.status)) faltas += 1;
+      if (a.status === "Reposição realizada") reposicoes += 1;
+    })
+  );
+  const marcadas = presencas + faltas;
+  return {
+    matriculas: mats.map((m) => ({ matricula: m, curso: cursos[m.cursoId] || { nome: "Curso removido", cor: "#E3242B" }, progresso: progressoMatricula(dados, m) })),
+    aulas,
+    presencas,
+    faltas,
+    reposicoes,
+    pctPresenca: marcadas ? presencas / marcadas : null,
+    saldo: saldoDePontos(dados.pontos, alunoId),
+  };
+}
+
+export function serieMensal(aulas, meses = 12) {
+  const por = {};
+  aulas.forEach((a) => {
+    if (!a.data || !marcada(a.status)) return;
+    const k = a.data.slice(0, 7);
+    if (!por[k]) por[k] = { presencas: 0, faltas: 0 };
+    if (ehPresenca(a.status)) por[k].presencas += 1;
+    else por[k].faltas += 1;
+  });
+  const chaves = Object.keys(por).sort().slice(-meses);
+  return {
+    labels: chaves.map((k) => `${MESES_CURTOS[Number(k.slice(5, 7)) - 1]}/${k.slice(2, 4)}`),
+    presencas: chaves.map((k) => por[k].presencas),
+    faltas: chaves.map((k) => por[k].faltas),
+  };
+}
+
+export function frequenciaAcumulada(aulas) {
+  const marcadas = aulas.filter((a) => a.data && marcada(a.status)).sort((a, b) => a.data.localeCompare(b.data));
+  let pres = 0;
+  const labels = [];
+  const valores = [];
+  marcadas.forEach((a, i) => {
+    if (ehPresenca(a.status)) pres += 1;
+    labels.push(formatarDataCurta(a.data));
+    valores.push(Math.round((pres / (i + 1)) * 100));
+  });
+  return { labels, valores };
+}
