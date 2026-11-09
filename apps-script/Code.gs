@@ -14,35 +14,42 @@ const SCHEMA = {
   Cursos:     [['id','t'],['nome','t'],['cor','t'],['ativo','t'],['grupo','t']],
   Professores: [['id','t'],['nome','t'],['contato','t'],['cor','t'],['ativo','t'],['obs','t']],
   Escala:     [['id','t'],['professorId','t'],['dia','t'],['inicio','h'],['fim','h'],['cursoId','t'],['obs','t']],
-  Modulos:    [['id','t'],['cursoId','t'],['ordem','n'],['nome','t'],['pontos','n']],
+  Modulos:    [['id','t'],['cursoId','t'],['ordem','n'],['nome','t'],['pontos','n'],['fase','t']],
   Matriculas: [['id','t'],['alunoId','t'],['cursoId','t'],['dia','t'],['inicio','h'],['duracao','n'],['modalidade','t'],['moduloAtual','n'],['dataInicio','d'],['status','t'],['obs','t']],
   Aulas:      [['id','t'],['data','d'],['matriculaId','t'],['status','t'],['tipo','t'],['hora','h'],['modalidade','t'],['modulo','n'],['reposicaoDe','t'],['obs','t'],['professorId','t']],
   Progresso:  [['id','t'],['matriculaId','t'],['moduloId','t'],['concluidoEm','d'],['obs','t']],
   Pontos:     [['id','t'],['data','d'],['alunoId','t'],['tipo','t'],['pontos','n'],['descricao','t'],['moduloId','t'],['registradoPor','t']],
   Premios:    [['id','t'],['nome','t'],['custo','n'],['ativo','t']],
+  Migracao:   [['id','t'],['matriculaId','t'],['presencas','n'],['faltas','n'],['reposicoesPendentes','n'],['obs','t']],
+  Movimentacoes: [['id','t'],['data','d'],['alunoId','t'],['matriculaId','t'],['tipo','t'],['motivo','t'],['obs','t'],['registradoPor','t']],
+  Avaliacoes: [['id','t'],['matriculaId','t'],['tipo','t'],['data','d'],['conceito','t'],['nota','n'],['comentario','t'],['professorId','t']],
   Usuarios:   [['email','t'],['nome','t'],['perfil','t'],['ativo','t']]
 };
-const CHAVE_DADOS = { Alunos: 'alunos', Professores: 'professores', Escala: 'escala', Cursos: 'cursos', Modulos: 'modulos', Matriculas: 'matriculas', Aulas: 'aulas', Progresso: 'progresso', Pontos: 'pontos', Premios: 'premios' };
-const PREFIXO = { Alunos: 'A', Professores: 'PRF', Escala: 'ESC', Cursos: 'C', Modulos: 'MOD', Matriculas: 'MAT', Aulas: 'AUL', Progresso: 'PRG', Pontos: 'P', Premios: 'PR' };
+const CHAVE_DADOS = { Alunos: 'alunos', Professores: 'professores', Escala: 'escala', Cursos: 'cursos', Modulos: 'modulos', Matriculas: 'matriculas', Aulas: 'aulas', Progresso: 'progresso', Pontos: 'pontos', Premios: 'premios', Migracao: 'migracao', Movimentacoes: 'movimentacoes', Avaliacoes: 'avaliacoes' };
+const PREFIXO = { Alunos: 'A', Professores: 'PRF', Escala: 'ESC', Cursos: 'C', Modulos: 'MOD', Matriculas: 'MAT', Aulas: 'AUL', Progresso: 'PRG', Pontos: 'P', Premios: 'PR', Migracao: 'MIG', Movimentacoes: 'MOV', Avaliacoes: 'AVA' };
 const QUEM_GRAVA = {
-  Aulas: ['Admin', 'Professor'], Pontos: ['Admin', 'Professor'],
+  Aulas: ['Admin', 'Professor'], Pontos: ['Admin', 'Professor'], Migracao: ['Admin', 'Professor'], Avaliacoes: ['Admin', 'Professor'], Movimentacoes: ['Admin'],
   Alunos: ['Admin'], Cursos: ['Admin'], Modulos: ['Admin'], Matriculas: ['Admin'], Progresso: ['Admin'], Premios: ['Admin'],
   Professores: ['Admin'], Escala: ['Admin']
 };
 // Abas criadas pela função prepararNovidades; se ainda não existirem, o sistema segue funcionando sem elas
-const OPCIONAIS = ['Professores', 'Escala'];
+const OPCIONAIS = ['Professores', 'Escala', 'Migracao', 'Movimentacoes', 'Avaliacoes'];
 const OBRIGATORIOS = {
   Alunos: ['nome'], Cursos: ['nome'], Modulos: ['cursoId', 'ordem', 'nome'],
   Matriculas: ['alunoId', 'cursoId', 'dia', 'inicio', 'modalidade', 'status'],
   Aulas: ['data', 'matriculaId', 'tipo'], Progresso: ['matriculaId', 'moduloId', 'concluidoEm'],
   Pontos: ['data', 'alunoId', 'tipo', 'pontos'], Premios: ['nome', 'custo'],
-  Professores: ['nome'], Escala: ['professorId', 'dia', 'inicio', 'fim']
+  Professores: ['nome'], Escala: ['professorId', 'dia', 'inicio', 'fim'], Migracao: ['matriculaId'],
+  Movimentacoes: ['data', 'alunoId', 'tipo'], Avaliacoes: ['matriculaId', 'tipo', 'data', 'conceito']
 };
 const VALORES = {
   'Aulas.tipo': ['Regular', 'Reposição', 'Avulsa', 'Experimental'],
   'Aulas.status': ['', 'Presente', 'Falta', 'Reposição agendada', 'Reposição realizada'],
   'Aulas.modalidade': ['', 'Presencial', 'Online'],
-  'Matriculas.status': ['Ativa', 'Concluída', 'Trancada', 'Experimental'],
+  'Matriculas.status': ['Ativa', 'Concluída', 'Trancada', 'Saiu', 'Experimental'],
+  'Movimentacoes.tipo': ['Entrada', 'Saída', 'Trancamento', 'Retorno', 'Conclusão', 'Troca de horário'],
+  'Avaliacoes.tipo': ['Final'],
+  'Avaliacoes.conceito': ['Excelente', 'Muito bom', 'Bom', 'Regular', 'Precisa melhorar'],
   'Matriculas.modalidade': ['Presencial', 'Online'],
   'Matriculas.dia': ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom'],
   'Pontos.tipo': ['Ganho (módulo)', 'Ganho (manual)', 'Resgate'],
@@ -50,16 +57,18 @@ const VALORES = {
 };
 // Não deixa excluir um registro se outro aponta para ele
 const REFERENCIAS = {
-  Alunos: [['Matriculas', 'alunoId'], ['Pontos', 'alunoId']],
+  Alunos: [['Matriculas', 'alunoId'], ['Pontos', 'alunoId'], ['Movimentacoes', 'alunoId']],
   Cursos: [['Matriculas', 'cursoId'], ['Modulos', 'cursoId'], ['Escala', 'cursoId']],
   Professores: [['Escala', 'professorId']],
   Modulos: [['Progresso', 'moduloId']],
-  Matriculas: [['Aulas', 'matriculaId'], ['Progresso', 'matriculaId']]
+  Matriculas: [['Aulas', 'matriculaId'], ['Progresso', 'matriculaId'], ['Movimentacoes', 'matriculaId'], ['Avaliacoes', 'matriculaId']]
 };
 const CONFIG_CHAVES = {
   'Nome da escola': 'nomeEscola', 'Pontos padrão por módulo': 'pontosPadrao', 'Ranking de faltas: janela (dias)': 'rankingDias',
   'Grade: hora inicial': 'gradeInicio', 'Grade: hora final': 'gradeFim', 'Cor: aulas online': 'corOnline',
   'Cor: reposições': 'corReposicao', 'Cor: aula experimental': 'corExperimental',
+  'Alerta de evasão: faltas seguidas': 'riscoFaltasSeguidas', 'Alerta de evasão: reposições pendentes': 'riscoReposicoes',
+  'Recurso: avaliações': 'recursoAvaliacoes', 'Recurso: alertas de evasão': 'recursoAlertas',
   'Recurso: pontos e recompensas': 'recursoPontos', 'Recurso: professores e escala': 'recursoProfessores', 'Recurso: aulas experimentais': 'recursoExperimentais'
 };
 // Funcionalidades ligáveis/desligáveis (valor Sim/Não na aba Config; sem a linha, a funcionalidade fica ligada)
@@ -134,6 +143,12 @@ function executar(req, u) {
     case 'criarExperimental':
       exigir(u, ['Admin', 'Professor']);
       return criarExperimental(req, u);
+    case 'movimentar':
+      exigir(u, ['Admin']);
+      return movimentar(req, u);
+    case 'avaliacaoFinal':
+      exigir(u, ['Admin', 'Professor']);
+      return avaliacaoFinal(req, u);
     case 'salvarConfig':
       exigir(u, ['Admin']);
       return salvarConfig(req.config || {});
@@ -270,29 +285,34 @@ function paraCelula(tipo, v) {
 
 /* ---------- leitura e escrita genéricas ---------- */
 
-// A aba Aulas ganhou a coluna K "ProfessorID" (professor responsável pela aula experimental). Em planilhas antigas ela é
-// criada sozinha na primeira leitura, empurrando as colunas calculadas (Aluno, Curso) para a direita.
-let _colunaProfessorOk = false;
-function garantirColunaProfessorAulas() {
-  if (_colunaProfessorOk) return;
-  const sh = planilha().getSheetByName('Aulas');
-  if (sh) {
-    if (String(sh.getRange(1, 11).getValue()).indexOf('ProfessorID') !== 0) {
-      sh.insertColumnBefore(11);
-      sh.getRange(1, 10).copyTo(sh.getRange(1, 11), SpreadsheetApp.CopyPasteType.PASTE_FORMAT, false);
-      sh.getRange(1, 11).setValue('ProfessorID (aula experimental)');
-      sh.setColumnWidth(11, 180);
-      sh.getRange(2, 11, Math.max(sh.getMaxRows() - 1, 1), 1).clearContent().clearDataValidations();
-    }
+// Colunas novas inseridas ANTES das colunas calculadas: Aulas!K "ProfessorID (aula experimental)" e Modulos!F "Fase".
+// Em planilhas antigas elas são criadas sozinhas na primeira leitura, empurrando as colunas calculadas para a direita.
+const _colunasOk = {};
+function garantirColuna(aba, indice, prefixo, titulo, largura) {
+  const chave = aba + indice;
+  if (_colunasOk[chave]) return;
+  const sh = planilha().getSheetByName(aba);
+  if (sh && String(sh.getRange(1, indice).getValue()).indexOf(prefixo) !== 0) {
+    sh.insertColumnBefore(indice);
+    sh.getRange(1, indice - 1).copyTo(sh.getRange(1, indice), SpreadsheetApp.CopyPasteType.PASTE_FORMAT, false);
+    sh.getRange(1, indice).setValue(titulo);
+    sh.setColumnWidth(indice, largura);
+    sh.getRange(2, indice, Math.max(sh.getMaxRows() - 1, 1), 1).clearContent().clearDataValidations();
   }
-  _colunaProfessorOk = true;
+  _colunasOk[chave] = true;
+}
+function garantirColunasNovas() {
+  garantirColuna('Aulas', 11, 'ProfessorID', 'ProfessorID (aula experimental)', 180);
+  garantirColuna('Modulos', 6, 'Fase', 'Fase (opcional)', 130);
 }
 
 function lerTabela(nome) {
-  if (nome === 'Aulas') garantirColunaProfessorAulas();
+  if (nome === 'Aulas') garantirColuna('Aulas', 11, 'ProfessorID', 'ProfessorID (aula experimental)', 180);
+  if (nome === 'Modulos') garantirColuna('Modulos', 6, 'Fase', 'Fase (opcional)', 130);
   const campos = SCHEMA[nome];
   const n = campos.length;
-  const sh = planilha().getSheetByName(nome);
+  let sh = planilha().getSheetByName(nome);
+  if (!sh && ABAS_AUTO[nome]) sh = criarAba(nome);
   if (!sh && OPCIONAIS.indexOf(nome) > -1) return { sh: null, registros: [], linhas: [], livre: 2 };
   if (!sh) throw falha('ERRO', 'A aba "' + nome + '" não existe na planilha.');
   const max = sh.getMaxRows();
@@ -352,9 +372,46 @@ function validar(nome, reg) {
   }
 }
 
+// Abas criadas sozinhas na primeira leitura, se ainda não existirem (título e largura de cada coluna).
+const ABAS_AUTO = {
+  Migracao: {
+    titulos: ['ID', 'MatriculaID', 'Presenças (sistema anterior)', 'Faltas (sistema anterior)', 'Reposições pendentes (sistema anterior)', 'Observações'],
+    larguras: [90, 110, 150, 150, 200, 280]
+  },
+  Movimentacoes: {
+    titulos: ['ID', 'Data', 'AlunoID', 'MatriculaID', 'Tipo', 'Motivo', 'Observações', 'Registrado por'],
+    larguras: [90, 90, 90, 110, 120, 200, 280, 200]
+  },
+  Avaliacoes: {
+    titulos: ['ID', 'MatriculaID', 'Tipo', 'Data', 'Conceito', 'Nota', 'Comentário', 'ProfessorID'],
+    larguras: [90, 110, 70, 90, 130, 60, 320, 110]
+  }
+};
+function criarAba(nome) {
+  const cfg = ABAS_AUTO[nome];
+  const ss = planilha();
+  let sh = ss.getSheetByName(nome);
+  if (sh) return sh;
+  sh = ss.insertSheet(nome);
+  sh.getRange(1, 1, 1, cfg.titulos.length).setValues([cfg.titulos]).setFontWeight('bold').setFontColor('#FFFFFF').setBackground('#111111').setHorizontalAlignment('center');
+  cfg.larguras.forEach(function (w, i) { sh.setColumnWidth(i + 1, w); });
+  sh.setFrozenRows(1);
+  return sh;
+}
+
 function salvarRegistro(nome, reg, usuario) {
   if (!SCHEMA[nome] || nome === 'Usuarios') throw falha('ERRO', 'Tabela inválida: ' + nome);
   validar(nome, reg);
+  if (nome === 'Migracao') {
+    ['presencas', 'faltas', 'reposicoesPendentes'].forEach(function (k) {
+      const v = Number(reg[k] === '' || reg[k] === null || reg[k] === undefined ? 0 : reg[k]);
+      if (!isFinite(v) || v < 0 || Math.floor(v) !== v) throw falha('VALIDACAO', 'Use números inteiros, 0 ou mais.');
+      reg[k] = v;
+    });
+    // uma linha por matrícula: se já existe, atualiza em vez de criar outra
+    const existente = lerTabela('Migracao').registros.find(function (r) { return r.matriculaId === reg.matriculaId; });
+    if (existente) reg.id = existente.id;
+  }
   const T = lerTabela(nome);
   let i = reg.id ? T.registros.findIndex(function (r) { return r.id === reg.id; }) : -1;
   // evita duplicar a marcação de uma mesma aula regular (mesma matrícula e data)
@@ -416,8 +473,10 @@ function salvarConfig(cfg) {
     gradeInicio: function (v) { v = Number(v); if (!isFinite(v) || v < 0 || v > 23) throw falha('ERRO', 'Hora inicial inválida.'); return v; },
     gradeFim: function (v) { v = Number(v); if (!isFinite(v) || v < 1 || v > 24) throw falha('ERRO', 'Hora final inválida.'); return v; },
     corOnline: corValida, corReposicao: corValida, corExperimental: corValida,
-    recursoPontos: boolSim, recursoProfessores: boolSim, recursoExperimentais: boolSim
+    recursoPontos: boolSim, recursoProfessores: boolSim, recursoExperimentais: boolSim, recursoAvaliacoes: boolSim, recursoAlertas: boolSim,
+    riscoFaltasSeguidas: inteiroMin1, riscoReposicoes: inteiroMin1
   };
+  function inteiroMin1(v) { v = Number(v); if (!isFinite(v) || v < 1 || Math.floor(v) !== v) throw falha('ERRO', 'Os limites do alerta devem ser números inteiros, 1 ou mais.'); return v; }
   function boolSim(v) { return v === true || String(v).trim().toLowerCase() === 'sim' || String(v).trim().toLowerCase() === 'true' ? 'Sim' : 'Não'; }
   function corValida(v) { v = String(v).trim(); if (!COR.test(v)) throw falha('ERRO', 'Cor inválida (use o formato #RRGGBB).'); return v.toUpperCase(); }
   const ultima = sh.getLastRow();
@@ -486,7 +545,82 @@ function concluirModulo(req, u) {
 
   const mudancas = { matriculas: [novaMat], progresso: [progresso] };
   if (pontos) mudancas.pontos = [pontos];
+  if (!proximo) {
+    mudancas.movimentacoes = [salvarRegistro('Movimentacoes', { data: hoje, alunoId: mat.alunoId, matriculaId: mat.id, tipo: 'Conclusão', motivo: 'Concluiu todos os módulos', obs: '', registradoPor: u.email }, u)];
+  }
   return { ok: true, mudancas: mudancas, pontosGanhos: pontos ? pts : 0, concluiuCurso: !proximo };
+}
+
+// Saída, trancamento e retorno de matrículas: muda a situação e guarda o histórico na aba Movimentacoes
+const NOVO_STATUS = { 'Saída': 'Saiu', 'Trancamento': 'Trancada', 'Retorno': 'Ativa' };
+
+function movimentar(req, u) {
+  const tipo = String(req.tipo || '');
+  if (!NOVO_STATUS[tipo]) throw falha('VALIDACAO', 'Movimentação inválida.');
+  const data = req.data || hojeIso();
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(data)) throw falha('VALIDACAO', 'Data inválida.');
+  const ids = (req.matriculaIds || []).map(String);
+  if (!ids.length) throw falha('VALIDACAO', 'Escolha pelo menos uma matrícula.');
+  const motivo = String(req.motivo || '').trim().slice(0, 80);
+  const obs = String(req.obs || '').trim().slice(0, 300);
+  if (tipo === 'Saída' && !motivo) throw falha('VALIDACAO', 'Informe o motivo da saída.');
+  const mats = lerTabela('Matriculas').registros;
+  const matriculas = [];
+  const movimentacoes = [];
+  ids.forEach(function (id) {
+    const mat = mats.find(function (r) { return r.id === id; });
+    if (!mat) throw falha('ERRO', 'Matrícula não encontrada.');
+    const permitidos = tipo === 'Retorno' ? ['Saiu', 'Trancada'] : ['Ativa', 'Trancada'];
+    if (permitidos.indexOf(mat.status) === -1) throw falha('VALIDACAO', 'A matrícula está com a situação "' + mat.status + '" e não pode receber essa movimentação.');
+    const nova = Object.assign({}, mat, { status: NOVO_STATUS[tipo] });
+    salvarRegistro('Matriculas', nova, u);
+    matriculas.push(nova);
+    movimentacoes.push(salvarRegistro('Movimentacoes', { data: data, alunoId: mat.alunoId, matriculaId: mat.id, tipo: tipo, motivo: motivo, obs: obs, registradoPor: u.email }, u));
+  });
+  // o aluno fica inativo quando não sobra matrícula ativa, trancada ou experimental (e volta a ativo no retorno)
+  const alunosMudados = [];
+  const frescas = lerTabela('Matriculas').registros;
+  const alunosTab = lerTabela('Alunos').registros;
+  matriculas.map(function (m) { return m.alunoId; }).filter(function (id, i, a) { return a.indexOf(id) === i; }).forEach(function (alunoId) {
+    const aluno = alunosTab.find(function (x) { return x.id === alunoId; });
+    if (!aluno) return;
+    const resta = frescas.some(function (m) { return m.alunoId === alunoId && ['Ativa', 'Trancada', 'Experimental'].indexOf(m.status) > -1; });
+    const ativo = resta ? 'Sim' : 'Não';
+    if (String(aluno.ativo) !== ativo) {
+      const novo = Object.assign({}, aluno, { ativo: ativo });
+      salvarRegistro('Alunos', novo, u);
+      alunosMudados.push(novo);
+    }
+  });
+  return { ok: true, mudancas: { matriculas: matriculas, movimentacoes: movimentacoes, alunos: alunosMudados } };
+}
+
+// Avaliação final do curso (uma por matrícula; salvar de novo atualiza). Pode concluir o curso junto.
+function avaliacaoFinal(req, u) {
+  const mat = lerTabela('Matriculas').registros.find(function (r) { return r.id === req.matriculaId; });
+  if (!mat) throw falha('ERRO', 'Matrícula não encontrada.');
+  if (['Ativa', 'Concluída'].indexOf(mat.status) === -1) throw falha('VALIDACAO', 'A avaliação final é para matrículas ativas ou concluídas.');
+  const data = req.data || hojeIso();
+  let nota = '';
+  if (req.nota !== '' && req.nota !== null && req.nota !== undefined) {
+    nota = Number(req.nota);
+    if (!isFinite(nota) || nota < 0 || nota > 10) throw falha('VALIDACAO', 'A nota deve estar entre 0 e 10.');
+  }
+  const professorId = String(req.professorId || '').trim();
+  if (professorId && !lerTabela('Professores').registros.some(function (p) { return p.id === professorId; })) throw falha('VALIDACAO', 'Professor não encontrado.');
+  const existente = lerTabela('Avaliacoes').registros.find(function (a) { return a.matriculaId === mat.id && a.tipo === 'Final'; });
+  const avaliacao = salvarRegistro('Avaliacoes', {
+    id: existente ? existente.id : undefined, matriculaId: mat.id, tipo: 'Final', data: data, conceito: String(req.conceito || ''),
+    nota: nota, comentario: String(req.comentario || '').trim().slice(0, 600), professorId: professorId
+  }, u);
+  const mudancas = { avaliacoes: [avaliacao] };
+  if ((req.concluir === true || String(req.concluir) === 'true') && mat.status === 'Ativa') {
+    const nova = Object.assign({}, mat, { status: 'Concluída' });
+    salvarRegistro('Matriculas', nova, u);
+    mudancas.matriculas = [nova];
+    mudancas.movimentacoes = [salvarRegistro('Movimentacoes', { data: data, alunoId: mat.alunoId, matriculaId: mat.id, tipo: 'Conclusão', motivo: 'Avaliação final', obs: '', registradoPor: u.email }, u)];
+  }
+  return { ok: true, mudancas: mudancas };
 }
 
 function resgatar(alunoId, premioId, u) {
@@ -564,7 +698,8 @@ function prepararNovidades() {
     sh.getRange(2, 8, ATE - 1, 1).setFormulas(busca('Professores', 'B', 'B'));
     sh.getRange(2, 9, ATE - 1, 1).setFormulas(busca('Cursos', 'B', 'F'));
   }
-  garantirColunaProfessorAulas();
+  garantirColunasNovas();
+  Object.keys(ABAS_AUTO).forEach(function (n) { criarAba(n); });
   const escala = ss.getSheetByName('Escala');
   if (escala) {
     escala.getRange(2, 6, ATE - 1, 1).clearDataValidations();

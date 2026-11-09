@@ -11,10 +11,14 @@ import VuiButton from "components/VuiButton";
 import DashboardLayout from "examples/LayoutContainers/DashboardLayout";
 import MiniStatisticsCard from "examples/Cards/StatisticsCards/MiniStatisticsCard";
 
-import { IoArrowBack, IoCheckmarkDone, IoCloseCircle, IoStatsChart, IoTrophy, IoAdd } from "react-icons/io5";
+import { IoArrowBack, IoCheckmarkDone, IoCloseCircle, IoStatsChart, IoTrophy, IoAdd, IoRefresh } from "react-icons/io5";
 
 import { useEscola } from "context/escola";
-import { DIAS_LONGOS, DURACAO_AULA, DURACAO_EXPERIMENTAL, formatarData, frequenciaAcumulada, indexarAulas, resumoAluno, serieMensal } from "utils/escola";
+import SaldoAnterior from "layouts/alunos/components/SaldoAnterior";
+import MovimentacaoDialog from "layouts/alunos/components/MovimentacaoDialog";
+import AvaliacaoFinalDialog from "layouts/alunos/components/AvaliacaoFinalDialog";
+import HistoricoMovimentacoes from "layouts/alunos/components/HistoricoMovimentacoes";
+import { DIAS_LONGOS, DURACAO_AULA, DURACAO_EXPERIMENTAL, alertasDeRisco, descricaoModulo, faseDoModulo, formatarData, frequenciaAcumulada, indexarAulas, resumoAluno, rotuloSituacao, serieMensal } from "utils/escola";
 
 import BarraStatus from "layouts/shared/BarraStatus";
 import StatusChip from "layouts/shared/StatusChip";
@@ -36,12 +40,15 @@ function FichaAluno() {
   const [limite, setLimite] = useState(15);
   const [filtroStatusHist, setFiltroStatusHist] = useState("Todos");
   const [concluindo, setConcluindo] = useState("");
+  const [movDlg, setMovDlg] = useState({ open: false, tipo: "Saída", itens: [] });
+  const [avalDlg, setAvalDlg] = useState({ open: false, item: null });
 
   const aluno = dados.alunos.find((a) => a.id === id);
   const idx = useMemo(() => indexarAulas(dados), [dados]);
   const r = useMemo(() => (aluno ? resumoAluno(dados, id, idx) : null), [dados, id, idx, aluno]);
   const serie = useMemo(() => serieMensal(r ? r.aulas : []), [r]);
   const freq = useMemo(() => frequenciaAcumulada(r ? r.aulas : []), [r]);
+  const risco = useMemo(() => (recursos.alertas && aluno ? alertasDeRisco(dados, dados.config).find((x) => x.aluno.id === id) : null), [dados, id, aluno, recursos.alertas]);
   const pontosAluno = useMemo(() => dados.pontos.filter((p) => p.alunoId === id).sort((a, b) => b.data.localeCompare(a.data)), [dados.pontos, id]);
 
   const historico = useMemo(() => {
@@ -69,6 +76,15 @@ function FichaAluno() {
       </DashboardLayout>
     );
   }
+
+  // abre o diálogo de saída/trancamento/retorno com as matrículas que podem receber a movimentação
+  const abrirMov = (tipo, alvo) => {
+    const permitidos = tipo === "Retorno" ? ["Saiu", "Trancada"] : ["Ativa", "Trancada"];
+    const itens = (alvo ? r.matriculas.filter((x) => x.matricula.id === alvo) : r.matriculas).filter((x) => permitidos.includes(x.matricula.status));
+    if (itens.length) setMovDlg({ open: true, tipo, itens });
+  };
+  const podeSair = r.matriculas.some((x) => ["Ativa", "Trancada"].includes(x.matricula.status));
+  const avaliacaoDe = (matId) => (dados.avaliacoes || []).find((a) => a.matriculaId === matId && a.tipo === "Final");
 
   const concluir = async (m, prog) => {
     const atual = prog.atual && prog.atual.modulo;
@@ -114,8 +130,17 @@ function FichaAluno() {
               {[aluno.responsavel && `Responsável: ${aluno.responsavel}`, aluno.contato, aluno.obs].filter(Boolean).join(" · ") || "Sem contato cadastrado"}
             </VuiTypography>
           </VuiBox>
-          {pode.admin && (
-            <VuiBox display="flex" gap="8px" flexWrap="wrap">
+          <VuiBox display="flex" gap="8px" flexWrap="wrap">
+            <VuiButton size="small" color="info" variant="outlined" onClick={() => history.push(`/alunos/${id}/boletim`)}>
+              Boletim
+            </VuiButton>
+            {pode.admin && podeSair && (
+              <VuiButton size="small" color="error" variant="outlined" onClick={() => abrirMov("Saída")}>
+                Registrar saída
+              </VuiButton>
+            )}
+            {pode.admin && (
+              <>
               <VuiButton size="small" color="info" variant="outlined" onClick={() => setEditar(true)}>
                 Editar dados
               </VuiButton>
@@ -123,28 +148,45 @@ function FichaAluno() {
                 <IoAdd size="14px" style={{ marginRight: 4 }} />
                 Nova matrícula
               </VuiButton>
-            </VuiBox>
-          )}
+              </>
+            )}
+          </VuiBox>
         </VuiBox>
+
+        {risco && (
+          <Card sx={{ mb: 3, borderLeft: "4px solid #F5A524" }}>
+            <VuiTypography variant="button" color="warning" fontWeight="bold" sx={{ display: "block" }}>
+              Atenção: risco de evasão
+            </VuiTypography>
+            <VuiTypography variant="button" color="text" fontWeight="regular">
+              {risco.motivos.join(" · ")}
+            </VuiTypography>
+          </Card>
+        )}
 
         <VuiBox mb={3}>
           <Grid container spacing={3}>
-            <Grid item xs={12} md={6} xl={3}>
+            <Grid item xs={12} md={6} xl>
               <MiniStatisticsCard title={{ text: "presença", fontWeight: "regular" }} count={r.pctPresenca === null ? "—" : `${Math.round(r.pctPresenca * 100)}%`} percentage={{ color: r.pctPresenca !== null && r.pctPresenca < 0.7 ? "error" : "success", text: "" }} icon={{ color: "info", component: icone(IoStatsChart) }} />
             </Grid>
-            <Grid item xs={12} md={6} xl={3}>
+            <Grid item xs={12} md={6} xl>
               <MiniStatisticsCard title={{ text: "presenças" }} count={String(r.presencas)} percentage={{ color: "success", text: r.reposicoes ? `${r.reposicoes} em reposição` : "" }} icon={{ color: "info", component: icone(IoCheckmarkDone) }} />
             </Grid>
-            <Grid item xs={12} md={6} xl={3}>
-              <MiniStatisticsCard title={{ text: "faltas" }} count={String(r.faltas)} percentage={{ color: "error", text: "" }} icon={{ color: "info", component: icone(IoCloseCircle) }} />
+            <Grid item xs={12} md={6} xl>
+              <MiniStatisticsCard title={{ text: "faltas" }} count={String(r.faltas)} percentage={{ color: "error", text: r.migrado.faltas ? `${r.migrado.faltas} do sistema anterior` : "" }} icon={{ color: "info", component: icone(IoCloseCircle) }} />
+            </Grid>
+            <Grid item xs={12} md={6} xl>
+              <MiniStatisticsCard title={{ text: "reposições pendentes" }} count={String(r.reposicoesPendentes)} percentage={{ color: r.reposicoesPendentes ? "warning" : "success", text: r.migrado.reposicoesPendentes ? `${r.migrado.reposicoesPendentes} do sistema anterior` : "" }} icon={{ color: "info", component: icone(IoRefresh) }} />
             </Grid>
             {recursos.pontos && (
-            <Grid item xs={12} md={6} xl={3}>
+            <Grid item xs={12} md={6} xl>
               <MiniStatisticsCard title={{ text: "pontos (saldo)" }} count={String(r.saldo)} percentage={{ color: "success", text: "" }} icon={{ color: "info", component: icone(IoTrophy) }} />
             </Grid>
             )}
           </Grid>
         </VuiBox>
+
+        <SaldoAnterior matriculas={r.matriculas} />
 
         {r.matriculas.length === 0 && (
           <Card sx={{ mb: 3 }}>
@@ -167,7 +209,7 @@ function FichaAluno() {
                       </VuiTypography>
                     </VuiBox>
                     <VuiTypography variant="caption" color="text" sx={{ border: "1px solid #3A3A3A", borderRadius: "20px", p: "2px 10px" }}>
-                      {m.status}
+                      {rotuloSituacao(m.status)}
                     </VuiTypography>
                   </VuiBox>
                   <VuiTypography variant="button" color="text" fontWeight="regular" sx={{ display: "block" }}>
@@ -182,10 +224,16 @@ function FichaAluno() {
                   ) : (
                     <>
                       <VuiTypography variant="button" color="white" fontWeight="medium" sx={{ display: "block", mt: 2, mb: 1.5 }}>
-                        {m.status === "Concluída" ? "Curso concluído" : progresso.atual ? `Módulo atual: ${progresso.atual.modulo.ordem} de ${progresso.total} · ${progresso.atual.modulo.nome}` : "Sem módulos cadastrados para este curso"}
+                        {m.status === "Concluída" ? "Curso concluído" : progresso.atual ? `Módulo atual: ${descricaoModulo(progresso.itens.map((x) => x.modulo), progresso.atual.modulo)} · ${progresso.atual.modulo.nome}` : "Sem módulos cadastrados para este curso"}
                       </VuiTypography>
-                      {progresso.itens.map((i) => (
-                        <VuiBox key={i.modulo.id} display="flex" alignItems="center" justifyContent="space-between" gap="12px" sx={{ p: "6px 10px", mb: "4px", borderRadius: "10px", borderLeft: `4px solid ${COR_ESTADO[i.estado]}`, background: `${COR_ESTADO[i.estado]}1A` }}>
+                      {progresso.itens.map((i, pos) => (
+                        <VuiBox key={i.modulo.id}>
+                          {faseDoModulo(i.modulo) && (pos === 0 || faseDoModulo(progresso.itens[pos - 1].modulo) !== faseDoModulo(i.modulo)) && (
+                            <VuiTypography variant="caption" color="white" fontWeight="bold" sx={{ display: "block", mt: pos === 0 ? 0 : 1.5, mb: "6px", textTransform: "uppercase", letterSpacing: "0.04em" }}>
+                              {faseDoModulo(i.modulo)} · {progresso.itens.filter((x) => faseDoModulo(x.modulo) === faseDoModulo(i.modulo) && x.estado === "concluido").length}/{progresso.itens.filter((x) => faseDoModulo(x.modulo) === faseDoModulo(i.modulo)).length} módulos
+                            </VuiTypography>
+                          )}
+                        <VuiBox display="flex" alignItems="center" justifyContent="space-between" gap="12px" sx={{ p: "6px 10px", mb: "4px", borderRadius: "10px", borderLeft: `4px solid ${COR_ESTADO[i.estado]}`, background: `${COR_ESTADO[i.estado]}1A` }}>
                           <VuiTypography variant="caption" color="white" fontWeight="medium">
                             {i.modulo.ordem}. {i.modulo.nome}
                           </VuiTypography>
@@ -193,6 +241,7 @@ function FichaAluno() {
                             {TXT_ESTADO[i.estado]}
                             {i.data ? ` em ${formatarData(i.data)}` : ""}
                           </VuiTypography>
+                        </VuiBox>
                         </VuiBox>
                       ))}
                     </>
@@ -204,12 +253,49 @@ function FichaAluno() {
                         {concluindo === m.id ? "Concluindo…" : "Concluir módulo atual"}
                       </VuiButton>
                     )}
+                    {recursos.avaliacoes && pode.professor && ["Ativa", "Concluída"].includes(m.status) && (
+                      <VuiButton size="small" color="info" variant="outlined" onClick={() => setAvalDlg({ open: true, item: { matricula: m, curso, progresso } })}>
+                        {avaliacaoDe(m.id) ? "Editar avaliação final" : "Avaliação final"}
+                      </VuiButton>
+                    )}
                     {pode.admin && (
                       <VuiButton size="small" color="info" variant="outlined" onClick={() => setMat({ open: true, matricula: m })}>
                         Editar matrícula
                       </VuiButton>
                     )}
+                    {pode.admin && m.status === "Ativa" && (
+                      <VuiButton size="small" color="warning" variant="text" onClick={() => abrirMov("Trancamento", m.id)}>
+                        Trancar
+                      </VuiButton>
+                    )}
+                    {pode.admin && ["Ativa", "Trancada"].includes(m.status) && (
+                      <VuiButton size="small" color="error" variant="text" onClick={() => abrirMov("Saída", m.id)}>
+                        Registrar saída
+                      </VuiButton>
+                    )}
+                    {pode.admin && ["Saiu", "Trancada"].includes(m.status) && (
+                      <VuiButton size="small" color="success" variant="contained" onClick={() => abrirMov("Retorno", m.id)}>
+                        Reativar
+                      </VuiButton>
+                    )}
                   </VuiBox>
+
+                  {recursos.avaliacoes && avaliacaoDe(m.id) && (
+                    <VuiBox sx={{ mt: 2, p: "12px 14px", borderRadius: "14px", background: "rgba(255,255,255,0.05)", borderLeft: "4px solid #01B574" }}>
+                      <VuiTypography variant="caption" color="text" sx={{ display: "block", textTransform: "uppercase", letterSpacing: "0.04em" }}>
+                        Avaliação final · {formatarData(avaliacaoDe(m.id).data)}
+                      </VuiTypography>
+                      <VuiTypography variant="button" color="white" fontWeight="bold" sx={{ display: "block" }}>
+                        {avaliacaoDe(m.id).conceito}
+                        {avaliacaoDe(m.id).nota !== "" && avaliacaoDe(m.id).nota !== null ? ` · nota ${String(avaliacaoDe(m.id).nota).replace(".", ",")}` : ""}
+                      </VuiTypography>
+                      {avaliacaoDe(m.id).comentario && (
+                        <VuiTypography variant="caption" color="text" sx={{ display: "block", mt: "4px" }}>
+                          {avaliacaoDe(m.id).comentario}
+                        </VuiTypography>
+                      )}
+                    </VuiBox>
+                  )}
                 </Grid>
                 <Grid item xs={12} lg={5}>
                   <VuiTypography variant="button" color="text" fontWeight="regular" sx={{ display: "block", textAlign: "center" }}>
@@ -239,6 +325,8 @@ function FichaAluno() {
             </Card>
           </VuiBox>
         ))}
+
+        <HistoricoMovimentacoes alunoId={id} />
 
         <VuiBox mb={3}>
           <Grid container spacing={3}>
@@ -340,6 +428,8 @@ function FichaAluno() {
       </VuiBox>
       <AlunoDialog open={editar} aluno={aluno} onClose={() => setEditar(false)} />
       <MatriculaDialog open={mat.open} matricula={mat.matricula} alunoId={aluno.id} onClose={() => setMat({ open: false, matricula: null })} />
+      <MovimentacaoDialog open={movDlg.open} tipo={movDlg.tipo} itens={movDlg.itens} onClose={() => setMovDlg((x) => ({ ...x, open: false }))} />
+      <AvaliacaoFinalDialog open={avalDlg.open} item={avalDlg.item} existente={avalDlg.item ? avaliacaoDe(avalDlg.item.matricula.id) : undefined} onClose={() => setAvalDlg((x) => ({ ...x, open: false }))} />
     </DashboardLayout>
   );
 }

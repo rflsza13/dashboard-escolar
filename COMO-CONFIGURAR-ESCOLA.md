@@ -42,7 +42,7 @@ REACT_APP_GOOGLE_CLIENT_ID=<ID do cliente>
 ```
 
 ## Observações
-- A sessão do login Google dura cerca de 1 hora; depois disso o site pede para entrar de novo.
+- Depois do primeiro login com a conta Google, o site guarda uma sessão de 180 dias (até clicar em sair). Veja `SESSAO_DIAS` no `Code.gs`.
 - O site atualiza os dados sozinho a cada 2 minutos (vários professores podem usar ao mesmo tempo).
 - Mantenha na planilha só o necessário sobre os alunos e compartilhe o arquivo apenas com a equipe.
 
@@ -136,3 +136,10 @@ Se a sua planilha foi criada antes desta versão:
   (`BONUS_BOM_COMPORTAMENTO`, no site e no `Code.gs`). A observação digitada vai para a aba Progresso. Cole o novo `Code.gs` e crie uma nova versão da implantação.
 - **Menu no celular:** botão flutuante no canto superior esquerdo abre o menu em telas pequenas; no desktop o menu continua expandindo com o mouse.
 - **Limpeza:** os comentários do topo dos arquivos de `src` foram removidos. O `LICENSE.md` (MIT, Creative Tim) foi mantido de propósito.
+
+## Saldo do sistema anterior (atualização)
+- Na **ficha do aluno** há o bloco **Saldo do sistema anterior**, com um contador (− / número / +) de **presenças**, **faltas** e **reposições pendentes** por matrícula.
+  Os valores são somados às presenças e faltas lançadas no sistema novo (cards e % de presença) e as reposições pendentes entram no card **reposições pendentes**
+  (faltas sem reposição agendada + as lançadas aqui). Admin e Professor podem lançar e corrigir; salvar de novo atualiza a mesma linha.
+- Na planilha, a aba **Migracao** (uma linha por matrícula) é criada sozinha na primeira leitura depois de colar o novo `Code.gs` (ou ao rodar `prepararNovidades`).
+- O saldo não tem data, então não entra no ranking de faltas por período do dashboard nem nos gráficos por mês.

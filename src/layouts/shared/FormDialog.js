@@ -20,7 +20,7 @@ const num = (v) => {
 };
 
 /*
-  campos: [{ chave, rotulo, tipo: texto|numero|data|hora|select|cor, opcoes: [{valor, rotulo}], obrigatorio, min, inteira }]
+  campos: [{ chave, rotulo, tipo: texto|numero|data|hora|select|cor, opcoes: [{valor, rotulo}], sugestoes: [texto], obrigatorio, min, inteira }]
   Chamamos onSalvar(valores) com os números já convertidos; se devolver false, o diálogo continua aberto.
 */
 function FormDialog({ open, titulo, descricao, campos, inicial, textoSalvar, onSalvar, onExcluir, onClose }) {
@@ -118,7 +118,7 @@ function FormDialog({ open, titulo, descricao, campos, inicial, textoSalvar, onS
           value={v[c.chave] || ""}
           onChange={set(c.chave)}
           error={Boolean(erro)}
-          inputProps={{ inputMode: c.tipo === "numero" ? "decimal" : undefined, style: tipo !== "text" ? { colorScheme: "dark" } : undefined }}
+          inputProps={{ inputMode: c.tipo === "numero" ? "decimal" : undefined, style: tipo !== "text" ? { colorScheme: "dark" } : undefined, list: c.sugestoes && c.sugestoes.length ? `sug-${c.chave}` : undefined }}
         />
       );
     }
@@ -126,6 +126,13 @@ function FormDialog({ open, titulo, descricao, campos, inicial, textoSalvar, onS
       <VuiBox key={c.chave} sx={c.cheia ? { gridColumn: "1 / -1" } : undefined}>
         <FieldLabel>{c.rotulo}</FieldLabel>
         {entrada}
+        {c.sugestoes && c.sugestoes.length > 0 && (
+          <datalist id={`sug-${c.chave}`}>
+            {c.sugestoes.map((x) => (
+              <option key={x} value={x} />
+            ))}
+          </datalist>
+        )}
         {erro && (
           <VuiTypography variant="caption" color="error" sx={{ display: "block", mt: "4px" }}>
             {erro}

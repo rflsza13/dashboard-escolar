@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useHistory } from "react-router-dom";
 
 import Grid from "@mui/material/Grid";
@@ -13,7 +13,7 @@ import DashboardLayout from "examples/LayoutContainers/DashboardLayout";
 import { IoAdd } from "react-icons/io5";
 
 import { useEscola } from "context/escola";
-import { DIAS_GRADE, cursosComCor, horaParaMin, tipoDoCurso } from "utils/escola";
+import { DIAS_GRADE, cursosComCor, faseDoModulo, fasesDoCurso, horaParaMin, tipoDoCurso } from "utils/escola";
 
 import BarraStatus from "layouts/shared/BarraStatus";
 import Tabela, { texto } from "layouts/shared/Tabela";
@@ -27,10 +27,16 @@ function Cursos() {
   const [cursoDlg, setCursoDlg] = useState({ open: false, curso: null });
   const [moduloDlg, setModuloDlg] = useState({ open: false, modulo: null });
   const [matDlg, setMatDlg] = useState({ open: false, matricula: null });
+  const [faseSel, setFaseSel] = useState("");
 
   const curso = dados.cursos.find((c) => c.id === sel) || dados.cursos[0] || null;
   const alunos = useMemo(() => dados.alunos.reduce((m, a) => ({ ...m, [a.id]: a }), {}), [dados.alunos]);
   const modulos = useMemo(() => (curso ? dados.modulos.filter((m) => m.cursoId === curso.id).sort((a, b) => a.ordem - b.ordem) : []), [dados.modulos, curso]);
+  const fases = useMemo(() => (curso ? fasesDoCurso(dados.modulos, curso.id) : []), [dados.modulos, curso]);
+  const modulosVisiveis = faseSel ? modulos.filter((m) => faseDoModulo(m) === faseSel) : modulos;
+  useEffect(() => {
+    setFaseSel("");
+  }, [curso && curso.id]);
   const turma = useMemo(
     () =>
       curso
@@ -43,11 +49,11 @@ function Cursos() {
   const cursosCor = useMemo(() => cursosComCor(dados.cursos), [dados.cursos]);
   const contagem = (c) => dados.matriculas.filter((m) => m.cursoId === c.id && m.status === "Ativa").length;
 
-  const colMod = [{ nome: "#" }, { nome: "Módulo" }, ...(recursos.pontos ? [{ nome: "Pontos", align: "right" }] : [])];
-  const linhasMod = modulos.map((m) => ({
+  const colMod = [{ nome: "#" }, { nome: "Módulo" }, ...(fases.length ? [{ nome: "Fase" }] : []), ...(recursos.pontos ? [{ nome: "Pontos", align: "right" }] : [])];
+  const linhasMod = modulosVisiveis.map((m) => ({
     chave: m.id,
     onClick: pode.admin ? () => setModuloDlg({ open: true, modulo: m }) : undefined,
-    celulas: [texto(String(m.ordem)), texto(m.nome, "white"), ...(recursos.pontos ? [texto(m.pontos === null || m.pontos === "" ? `${dados.config.pontosPadrao} (padrão)` : String(m.pontos))] : [])],
+    celulas: [texto(String(m.ordem)), texto(m.nome, "white"), ...(fases.length ? [texto(faseDoModulo(m) || "—")] : []), ...(recursos.pontos ? [texto(m.pontos === null || m.pontos === "" ? `${dados.config.pontosPadrao} (padrão)` : String(m.pontos))] : [])],
   }));
 
   const colTurma = [{ nome: "Dia" }, { nome: "Horário" }, { nome: "Aluno" }, { nome: "Modalidade" }, { nome: "Módulo" }, { nome: "Situação" }];
@@ -121,6 +127,16 @@ function Cursos() {
                       </VuiBox>
                     )}
                   </VuiBox>
+                  {fases.length > 0 && (
+                    <VuiBox display="flex" flexWrap="wrap" gap="8px" mb="14px">
+                      {["", ...fases].map((f) => (
+                        <VuiButton key={f || "todas"} size="small" color="info" variant={faseSel === f ? "contained" : "outlined"} onClick={() => setFaseSel(f)} sx={{ textTransform: "none" }}>
+                          {f || "Todas as fases"}
+                          {f ? ` (${modulos.filter((m) => faseDoModulo(m) === f).length})` : ""}
+                        </VuiButton>
+                      ))}
+                    </VuiBox>
+                  )}
                   <Tabela colunas={colMod} linhas={linhasMod} vazio="Este curso ainda não tem módulos." />
                 </Card>
               </VuiBox>
@@ -176,13 +192,14 @@ function Cursos() {
       <FormDialog
         open={moduloDlg.open}
         titulo={moduloDlg.modulo ? "Editar módulo" : "Novo módulo"}
-        descricao={recursos.pontos ? "Deixe os pontos em branco para usar o padrão definido na aba Config." : ""}
+        descricao={`${recursos.pontos ? "Deixe os pontos em branco para usar o padrão definido na aba Config. " : ""}Fase é opcional: módulos com o mesmo nome de fase ficam agrupados (ex.: Fase 1). A ordem continua única no curso todo.`}
         campos={[
           { chave: "ordem", rotulo: "Ordem (1, 2, 3…)", tipo: "numero", min: 1, inteira: true, obrigatorio: true },
           ...(recursos.pontos ? [{ chave: "pontos", rotulo: "Pontos ao concluir (opcional)", tipo: "numero", min: 0 }] : []),
+          { chave: "fase", rotulo: "Fase (opcional)", sugestoes: fases },
           { chave: "nome", rotulo: "Nome do módulo", obrigatorio: true, cheia: true },
         ]}
-        inicial={moduloDlg.modulo || { ordem: modulos.length + 1 }}
+        inicial={moduloDlg.modulo || { ordem: modulos.length + 1, fase: faseSel || (modulos.length ? faseDoModulo(modulos[modulos.length - 1]) : "") }}
         onSalvar={async (v) => !!(await salvar("Modulos", { ...moduloDlg.modulo, ...v, cursoId: curso.id }))}
         onExcluir={
           moduloDlg.modulo

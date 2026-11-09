@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import VuiBox from "components/VuiBox";
 import VuiTypography from "components/VuiTypography";
@@ -14,6 +14,7 @@ function Login() {
   const { fase, erro, entrar, sair } = useEscola();
   const botao = useRef(null);
   const negado = fase === "negado";
+  const [semGoogle, setSemGoogle] = useState(false);
 
   useEffect(() => {
     if (negado || !CLIENT_ID) return undefined;
@@ -26,6 +27,7 @@ function Login() {
         window.google.accounts.id.renderButton(botao.current, { theme: "filled_black", size: "large", text: "signin_with", shape: "pill", locale: "pt-BR", width: 280 });
       } else if (tentativas > 50) {
         clearInterval(t);
+        setSemGoogle(true);
       }
     }, 200);
     return () => clearInterval(t);
@@ -83,6 +85,12 @@ function Login() {
           {!CLIENT_ID && (
             <VuiTypography variant="button" color="warning" fontWeight="regular">
               Falta configurar REACT_APP_GOOGLE_CLIENT_ID no arquivo .env.
+            </VuiTypography>
+          )}
+
+          {semGoogle && !negado && (
+            <VuiTypography variant="caption" color="warning" fontWeight="regular" mb={2} sx={{ display: "block" }}>
+              Não foi possível carregar o login do Google. Verifique a internet e atualize o Chrome (e o Android System WebView) deste aparelho.
             </VuiTypography>
           )}
 

@@ -29,6 +29,10 @@ const CAMPOS = [
     { chave: "pontosPadrao", rotulo: "Pontos padrão por módulo", ajuda: "Usado quando o módulo não tem pontuação própria.", tipo: "inteiro", min: 0 },
     { chave: "rankingDias", rotulo: "Ranking de faltas: janela (dias)", ajuda: "Período considerado no ranking de alunos que mais faltam.", tipo: "inteiro", min: 1 },
   ] },
+  { grupo: "Alertas de evasão", itens: [
+    { chave: "riscoFaltasSeguidas", rotulo: "Faltas seguidas para entrar em risco", ajuda: "Quantas faltas seguidas, sem presença no meio, colocam o aluno em risco.", tipo: "inteiro", min: 1 },
+    { chave: "riscoReposicoes", rotulo: "Reposições pendentes para entrar em risco", ajuda: "Quantas reposições pendentes colocam o aluno em risco.", tipo: "inteiro", min: 1 },
+  ] },
   { grupo: "Cores da grade", itens: [
     { chave: "corOnline", rotulo: "Aulas online", ajuda: "Cor das aulas da modalidade online.", tipo: "cor" },
     { chave: "corReposicao", rotulo: "Reposições", ajuda: "Cor das aulas de reposição.", tipo: "cor" },

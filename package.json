@@ -1,10 +1,10 @@
 {
 	"name": "dashboard-escolar",
-	"version": "1.0.0",
+	"version": "1.0.5",
 	"private": true,
-	"author": "Creative Tim",
+	"author": "UrusianX",
 	"license": "See license in https://www.creative-tim.com/license",
-	"description": "Material UI version of Vision UI Dashboard by Creative Tim",
+	"description": "School management dashboard, by UrusianX",
 	"homepage": "https://demos.creative-tim.com/vision-ui-dashboard-react/#/dashboard",
 	"bugs": {
 		"url": "https://github.com/creativetimofficial/vision-ui-dashboard-react/issues"
@@ -22,6 +22,8 @@
 		"@mui/styled-engine": "5.1.1",
 		"@mui/styles": "^5.2.0",
 		"ajv": "^8.17.1",
+		"core-js": "^3.30.0",
+		"regenerator-runtime": "^0.13.11",
 		"apexcharts": "^3.30.0",
 		"chroma-js": "2.1.2",
 		"install": "^0.13.0",
@@ -62,14 +64,24 @@
 	},
 	"browserslist": {
 		"production": [
-			">0.2%",
+			"chrome >= 64",
+			"android >= 5",
+			"ios_saf >= 11",
+			"safari >= 11",
+			"firefox >= 68",
+			"edge >= 79",
 			"not dead",
 			"not op_mini all"
 		],
 		"development": [
-			"last 1 chrome version",
-			"last 1 firefox version",
-			"last 1 safari version"
+			"chrome >= 64",
+			"android >= 5",
+			"ios_saf >= 11",
+			"safari >= 11",
+			"firefox >= 68",
+			"edge >= 79",
+			"not dead",
+			"not op_mini all"
 		]
 	}
 }

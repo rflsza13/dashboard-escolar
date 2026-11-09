@@ -13,7 +13,7 @@ import VuiInput from "components/VuiInput";
 import VuiButton from "components/VuiButton";
 
 import { useEscola } from "context/escola";
-import { DIAS_GRADE, DURACAO_AULA, DURACAO_EXPERIMENTAL, hojeIso } from "utils/escola";
+import { DIAS_GRADE, DURACAO_AULA, DURACAO_EXPERIMENTAL, faseDoModulo, hojeIso } from "utils/escola";
 import { FieldLabel, NativeSelect, dialogPaper } from "layouts/shared/fields";
 import FormDialog from "layouts/shared/FormDialog";
 
@@ -49,6 +49,12 @@ AlunoDialog.propTypes = { open: PropTypes.bool.isRequired, aluno: PropTypes.obje
 export function MatriculaDialog({ open, matricula, alunoId, cursoId, onClose }) {
   const { dados, salvar, excluir } = useEscola();
   const editando = Boolean(matricula);
+  // com o curso já definido, o módulo atual vira uma lista (com a fase de cada módulo)
+  const cursoFixo = cursoId || (matricula && matricula.cursoId) || "";
+  const modulosDoCursoFixo = useMemo(
+    () => (cursoFixo ? dados.modulos.filter((m) => m.cursoId === cursoFixo).sort((a, b) => Number(a.ordem) - Number(b.ordem)) : []),
+    [dados.modulos, cursoFixo]
+  );
   const campos = useMemo(() => {
     const lista = [];
     if (!alunoId) {
@@ -62,15 +68,20 @@ export function MatriculaDialog({ open, matricula, alunoId, cursoId, onClose }) 
       { chave: "modalidade", rotulo: "Modalidade", tipo: "select", obrigatorio: true, opcoes: MODALIDADES },
       { chave: "dia", rotulo: "Dia da semana", tipo: "select", obrigatorio: true, opcoes: DIAS },
       { chave: "inicio", rotulo: "Horário", tipo: "hora", obrigatorio: true },
-      { chave: "moduloAtual", rotulo: "Módulo atual (número)", tipo: "numero", min: 1, inteira: true, obrigatorio: true },
+      modulosDoCursoFixo.length
+        ? {
+            chave: "moduloAtual", rotulo: "Módulo atual", tipo: "select", obrigatorio: true, cheia: true,
+            opcoes: modulosDoCursoFixo.map((m) => ({ valor: String(m.ordem), rotulo: `${faseDoModulo(m) ? `${faseDoModulo(m)} · ` : ""}Módulo ${m.ordem} — ${m.nome}` })),
+          }
+        : { chave: "moduloAtual", rotulo: "Módulo atual (número)", tipo: "numero", min: 1, inteira: true, obrigatorio: true },
       { chave: "dataInicio", rotulo: "Data de início", tipo: "data" },
       {
         chave: "status", rotulo: "Situação", tipo: "select", obrigatorio: true,
-        opcoes: ["Ativa", "Trancada", "Concluída", "Experimental"].map((s) => ({ valor: s, rotulo: s })),
+        opcoes: ["Ativa", "Trancada", "Saiu", "Concluída", "Experimental"].map((s) => ({ valor: s, rotulo: s })),
       }
     );
     return lista;
-  }, [dados.alunos, dados.cursos, alunoId]);
+  }, [dados.alunos, dados.cursos, alunoId, modulosDoCursoFixo]);
 
   const inicial = useMemo(
     () => matricula || { alunoId: alunoId || "", cursoId: cursoId || "", modalidade: "Presencial", dia: "Seg", inicio: "", moduloAtual: 1, dataInicio: hojeIso(), status: "Ativa" },
@@ -84,7 +95,7 @@ export function MatriculaDialog({ open, matricula, alunoId, cursoId, onClose }) 
       descricao="A aula se repete toda semana no dia e horário escolhidos, enquanto a situação for Ativa."
       campos={campos}
       inicial={inicial}
-      onSalvar={async (v) => !!(await salvar("Matriculas", { obs: "", ...matricula, ...v, alunoId: alunoId || v.alunoId, duracao: v.status === "Experimental" ? DURACAO_EXPERIMENTAL : DURACAO_AULA }))}
+      onSalvar={async (v) => !!(await salvar("Matriculas", { obs: "", ...matricula, ...v, moduloAtual: Number(v.moduloAtual) || 1, alunoId: alunoId || v.alunoId, duracao: v.status === "Experimental" ? DURACAO_EXPERIMENTAL : DURACAO_AULA }))}
       onExcluir={
         editando
           ? async () => {
@@ -225,6 +236,7 @@ export function AlunoNovoDialog({ open, onClose }) {
               {modulosDoCurso.length === 0 && <option value="1">1</option>}
               {modulosDoCurso.map((m) => (
                 <option key={m.id} value={m.ordem}>
+                  {faseDoModulo(m) ? `${faseDoModulo(m)} · ` : ""}
                   {m.ordem} · {m.nome}
                 </option>
               ))}

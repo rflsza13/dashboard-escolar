@@ -14,7 +14,7 @@ import VuiInput from "components/VuiInput";
 import VuiButton from "components/VuiButton";
 
 import { useEscola } from "context/escola";
-import { BONUS_BOM_COMPORTAMENTO, DIAS_LONGOS, fimDaAula, formatarData, siglaDia, somarDias, dataDeIso } from "utils/escola";
+import { BONUS_BOM_COMPORTAMENTO, DIAS_LONGOS, descricaoModulo, fimDaAula, formatarData, siglaDia, somarDias, dataDeIso } from "utils/escola";
 import { FieldLabel, NativeSelect, dialogPaper } from "layouts/shared/fields";
 import StatusChip from "layouts/shared/StatusChip";
 
@@ -222,7 +222,7 @@ function AulaDialog({ sessao, onClose }) {
         {podeConcluir && !modoRep && (
           <VuiBox mt={3} pt={2} sx={{ borderTop: "1px solid rgba(120,120,120,0.45)" }}>
             <VuiTypography variant="caption" color="text" sx={{ display: "block", mb: 1 }}>
-              Módulo atual: {moduloAtual.ordem} de {modulos.length} · {moduloAtual.nome}
+              Módulo atual: {descricaoModulo(modulos, moduloAtual)} · {moduloAtual.nome}
             </VuiTypography>
 
             {recursos.pontos && (

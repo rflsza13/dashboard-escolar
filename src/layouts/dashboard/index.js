@@ -16,7 +16,7 @@ import { IoSchool, IoCheckmarkDone, IoCloseCircle, IoRepeat, IoCalendar } from "
 
 import { useEscola } from "context/escola";
 import {
-  andamentoPorCurso, DEFAULT_CONFIG, ehFalta, ehPresenca, escalaDoDia, faltasSemReposicao, fimDaAula, hojeIso, montarSessoes,
+  alertasDeRisco, andamentoPorCurso, DEFAULT_CONFIG, ehFalta, ehPresenca, escalaDoDia, faltasSemReposicao, fimDaAula, hojeIso, montarSessoes,
   rankingFaltas, segundaDaSemana, somarDias,
 } from "utils/escola";
 
@@ -41,6 +41,7 @@ function Dashboard() {
   const ranking = useMemo(() => rankingFaltas(dados, hoje, Number(cfg.rankingDias) || 90, 8), [dados, hoje, cfg.rankingDias]);
   const semReposicao = useMemo(() => faltasSemReposicao(dados, hoje, 60), [dados, hoje]);
   const equipeHoje = useMemo(() => escalaDoDia(dados, hoje), [dados, hoje]);
+  const emRisco = useMemo(() => (recursos.alertas ? alertasDeRisco(dados, cfg) : []), [dados, cfg, recursos.alertas]);
 
   const presentesHoje = sessoesHoje.filter((s) => ehPresenca(s.status)).length;
   const faltasHoje = sessoesHoje.filter((s) => ehFalta(s.status)).length;
@@ -184,6 +185,36 @@ function Dashboard() {
                 </VuiBox>
               ))}
             </Card>
+            {recursos.alertas && (
+              <Card sx={{ borderLeft: "4px solid #F5A524" }}>
+                <VuiTypography variant="lg" color="white" fontWeight="bold" mb="4px">
+                  Alunos em risco
+                </VuiTypography>
+                <VuiTypography variant="button" color="text" fontWeight="regular" mb="16px" sx={{ display: "block" }}>
+                  {cfg.riscoFaltasSeguidas} faltas seguidas ou {cfg.riscoReposicoes} reposições pendentes
+                </VuiTypography>
+                {emRisco.length === 0 && (
+                  <VuiTypography variant="caption" color="text">
+                    Nenhum aluno em risco agora.
+                  </VuiTypography>
+                )}
+                {emRisco.slice(0, 8).map(({ aluno, motivos }) => (
+                  <VuiBox key={aluno.id} onClick={() => history.push(`/alunos/${aluno.id}`)} sx={{ cursor: "pointer", mb: "10px", p: "8px 10px", borderRadius: "12px", background: "rgba(245,165,36,0.08)" }}>
+                    <VuiTypography variant="button" color="white" fontWeight="medium" sx={{ display: "block" }}>
+                      {aluno.nome}
+                    </VuiTypography>
+                    <VuiTypography variant="caption" color="text">
+                      {motivos.join(" · ")}
+                    </VuiTypography>
+                  </VuiBox>
+                ))}
+                {emRisco.length > 8 && (
+                  <VuiTypography variant="caption" color="text">
+                    + {emRisco.length - 8} aluno(s). Veja na lista de Alunos (marca RISCO).
+                  </VuiTypography>
+                )}
+              </Card>
+            )}
             {recursos.professores && (
               <Card>
                 <VuiTypography variant="lg" color="white" fontWeight="bold" mb="4px">

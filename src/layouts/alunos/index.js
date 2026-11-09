@@ -13,7 +13,7 @@ import DashboardLayout from "examples/LayoutContainers/DashboardLayout";
 import { IoPersonAdd } from "react-icons/io5";
 
 import { useEscola } from "context/escola";
-import { indexarAulas, resumoAluno } from "utils/escola";
+import { alertasDeRisco, descricaoModulo, indexarAulas, resumoAluno } from "utils/escola";
 
 import BarraStatus from "layouts/shared/BarraStatus";
 import Tabela, { texto } from "layouts/shared/Tabela";
@@ -47,6 +47,9 @@ function Alunos() {
     [dados, idx]
   );
 
+  // alunos em risco de evasão (quando o alerta está ligado)
+  const emRisco = useMemo(() => (recursos.alertas ? alertasDeRisco(dados, dados.config).reduce((m, x) => ({ ...m, [x.aluno.id]: x }), {}) : {}), [dados, recursos.alertas]);
+
   const filtrados = useMemo(() => {
     const q = busca.trim().toLowerCase();
     return todos.filter(
@@ -66,9 +69,14 @@ function Alunos() {
       <VuiBox key="n">
         <VuiTypography variant="button" color="white" fontWeight="medium" sx={{ display: "block" }}>
           {aluno.nome}
+          {emRisco[aluno.id] && (
+            <span title={emRisco[aluno.id].motivos.join(" · ")} style={{ marginLeft: 8, fontSize: 10, fontWeight: 700, color: "#F5A524", border: "1px solid #F5A524", borderRadius: 10, padding: "1px 7px", verticalAlign: "middle" }}>
+              RISCO
+            </span>
+          )}
         </VuiTypography>
         <VuiTypography variant="caption" color="text">
-          {aluno.ativo === "Não" ? "Inativo" : aluno.responsavel || aluno.contato || "—"}
+          {aluno.ativo === "Não" ? (r.matriculas.some((m) => m.matricula.status === "Saiu") ? "Saiu" : "Inativo") : aluno.responsavel || aluno.contato || "—"}
         </VuiTypography>
       </VuiBox>,
       <VuiBox key="c">
@@ -87,8 +95,9 @@ function Alunos() {
               <>
                 <BarraProgresso pct={progresso.pct} cor={curso.cor || "#E3242B"} />
                 <VuiTypography variant="caption" color="text">
-                  {matricula.status === "Concluída" ? "Concluído" : `Módulo ${matricula.moduloAtual} de ${progresso.total || "?"}`} · {Math.round(progresso.pct * 100)}%
+                  {matricula.status === "Concluída" ? "Concluído" : progresso.atual ? descricaoModulo(progresso.itens.map((x) => x.modulo), progresso.atual.modulo) : `módulo ${matricula.moduloAtual} de ${progresso.total || "?"}`} · {Math.round(progresso.pct * 100)}%
                   {matricula.status === "Trancada" ? " · trancada" : ""}
+                  {matricula.status === "Saiu" ? " · saiu" : ""}
                 </VuiTypography>
               </>
             )}

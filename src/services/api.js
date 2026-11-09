@@ -28,12 +28,14 @@ const remoto = {
   resgatar: (t, alunoId, premioId) => chamar(t, { action: "resgatar", alunoId, premioId }),
   criarExperimental: (t, dados) => chamar(t, { action: "criarExperimental", ...dados }),
   salvarConfig: (t, config) => chamar(t, { action: "salvarConfig", config }),
+  movimentar: (t, form) => chamar(t, { action: "movimentar", ...form }),
+  avaliacaoFinal: (t, form) => chamar(t, { action: "avaliacaoFinal", ...form }),
 };
 
 /* ---------------- modo demonstração (localStorage) ---------------- */
 const KEY = "escola-demo-v2";
-const CHAVE = { Alunos: "alunos", Professores: "professores", Escala: "escala", Cursos: "cursos", Modulos: "modulos", Matriculas: "matriculas", Aulas: "aulas", Progresso: "progresso", Pontos: "pontos", Premios: "premios" };
-const PREF = { Alunos: "A", Professores: "PRF", Escala: "ESC", Cursos: "C", Modulos: "MOD", Matriculas: "MAT", Aulas: "AUL", Progresso: "PRG", Pontos: "P", Premios: "PR" };
+const CHAVE = { Alunos: "alunos", Professores: "professores", Escala: "escala", Cursos: "cursos", Modulos: "modulos", Matriculas: "matriculas", Aulas: "aulas", Progresso: "progresso", Pontos: "pontos", Premios: "premios", Migracao: "migracao", Movimentacoes: "movimentacoes", Avaliacoes: "avaliacoes" };
+const PREF = { Alunos: "A", Professores: "PRF", Escala: "ESC", Cursos: "C", Modulos: "MOD", Matriculas: "MAT", Aulas: "AUL", Progresso: "PRG", Pontos: "P", Premios: "PR", Migracao: "MIG", Movimentacoes: "MOV", Avaliacoes: "AVA" };
 
 function semear() {
   let s = 20261028;
@@ -49,6 +51,7 @@ function semear() {
     { id: "C03", nome: "Redação", cor: "#E85D9A", ativo: "Sim" },
     { id: "C04", nome: "Informática Básica", cor: "#4DA3FF", ativo: "Sim", grupo: "Informática" },
     { id: "C05", nome: "Informática Avançada", cor: "#2E7DD1", ativo: "Sim", grupo: "Informática" },
+    { id: "C06", nome: "Robótica 1", cor: "#F59E0B", ativo: "Sim" },
   ];
   const nomesMod = {
     C01: ["Fundamentos", "Conversação básica", "Gramática intermediária"],
@@ -56,10 +59,11 @@ function semear() {
     C03: ["Estrutura do texto", "Argumentação", "Produção dissertativa"],
     C04: ["Windows e internet", "Pacote Office"],
     C05: ["Planilhas avançadas", "Introdução à programação"],
+    C06: ["Montagem básica", "Sensores", "Motores", "Programação em blocos", "Desafios", "Projeto final"],
   };
   const modulos = [];
   cursos.forEach((c) =>
-    nomesMod[c.id].forEach((n, i) => modulos.push({ id: `MOD${c.id.slice(1)}${i + 1}`, cursoId: c.id, ordem: i + 1, nome: n, pontos: null }))
+    nomesMod[c.id].forEach((n, i) => modulos.push({ id: `MOD${c.id.slice(1)}${i + 1}`, cursoId: c.id, ordem: i + 1, nome: n, pontos: null, fase: c.id === "C06" ? (i < 3 ? "Fase 1" : "Fase 2") : "" }))
   );
   const alunos = Array.from({ length: 8 }, (_, i) => ({
     id: `A00${i + 1}`, nome: `Aluno Exemplo ${i + 1}`, responsavel: "Responsável Exemplo", contato: `(00) 90000-000${i + 1}`, ativo: "Sim", obs: "",
@@ -70,7 +74,7 @@ function semear() {
     [3, "Qua", "15:00", "C01", "Presencial", 3], [4, "Qua", "16:00", "C02", "Presencial", 2], [5, "Qua", "17:00", "C03", "Online", 2],
     [6, "Qui", "15:00", "C01", "Online", 1], [7, "Sex", "10:00", "C02", "Presencial", 1], [0, "Sex", "11:00", "C03", "Presencial", 1],
     [2, "Sáb", "09:00", "C01", "Presencial", 1], [1, "Qua", "15:00", "C03", "Presencial", 1], [3, "Ter", "16:00", "C02", "Presencial", 1],
-    [4, "Ter", "15:00", "C04", "Presencial", 1], [5, "Ter", "15:00", "C05", "Presencial", 1], [6, "Qui", "16:00", "C04", "Online", 2],
+    [4, "Ter", "15:00", "C04", "Presencial", 1], [5, "Ter", "15:00", "C05", "Presencial", 1], [6, "Qui", "16:00", "C04", "Online", 2], [7, "Qui", "17:00", "C06", "Presencial", 4],
   ];
   const pFalta = [0.05, 0.32, 0.1, 0.2, 0.08, 0.36, 0.15, 0.1];
   const matriculas = slots.map((x, i) => ({
@@ -125,7 +129,7 @@ function semear() {
   ];
   const escala = faixas.map((f, i) => ({ id: `ESC${String(i + 1).padStart(3, "0")}`, professorId: f[0], dia: f[1], inicio: f[2], fim: f[3], cursoId: f[4], obs: "" }));
   return {
-    dados: { alunos, professores, escala, cursos, modulos, matriculas, aulas, progresso, pontos, premios },
+    dados: { alunos, professores, escala, cursos, modulos, matriculas, aulas, progresso, pontos, premios, migracao: [], movimentacoes: [], avaliacoes: [] },
     config: { ...DEFAULT_CONFIG, nomeEscola: "Escola Exemplo", gradeInicio: 8, gradeFim: 20 },
   };
 }
@@ -151,8 +155,10 @@ function gravar(db) {
 const erro = (msg, code = "VALIDACAO") => Object.assign(new Error(msg), { code });
 
 function upsert(db, tabela, reg) {
+  if (!db.dados[CHAVE[tabela]]) db.dados[CHAVE[tabela]] = [];
   const lista = db.dados[CHAVE[tabela]];
   let i = reg.id ? lista.findIndex((r) => r.id === reg.id) : -1;
+  if (i === -1 && tabela === "Migracao") i = lista.findIndex((r) => r.matriculaId === reg.matriculaId);
   if (i === -1 && tabela === "Aulas" && (reg.tipo || "Regular") === "Regular") {
     i = lista.findIndex((r) => r.matriculaId === reg.matriculaId && r.data === reg.data && (r.tipo || "Regular") === "Regular");
   }
@@ -219,7 +225,60 @@ const demo = {
     gravar(db);
     const mudancas = { matriculas: [novaMat], progresso: [progresso] };
     if (pontos) mudancas.pontos = [pontos];
+    if (!proximo) mudancas.movimentacoes = [upsert(db, "Movimentacoes", { data: hoje, alunoId: mat.alunoId, matriculaId: mat.id, tipo: "Conclusão", motivo: "Concluiu todos os módulos", obs: "", registradoPor: "demo@escola.local" })];
+    gravar(db);
     return { ok: true, mudancas, pontosGanhos: pontos ? pts : 0, concluiuCurso: !proximo };
+  },
+  movimentar: async (t, f) => {
+    const db = ler();
+    const NOVO = { "Saída": "Saiu", Trancamento: "Trancada", Retorno: "Ativa" };
+    if (!NOVO[f.tipo]) throw erro("Movimentação inválida.");
+    const ids = f.matriculaIds || [];
+    if (!ids.length) throw erro("Escolha pelo menos uma matrícula.");
+    if (f.tipo === "Saída" && !String(f.motivo || "").trim()) throw erro("Informe o motivo da saída.");
+    const matriculas = [];
+    const movimentacoes = [];
+    ids.forEach((id) => {
+      const mat = db.dados.matriculas.find((m) => m.id === id);
+      if (!mat) throw erro("Matrícula não encontrada.");
+      const permitidos = f.tipo === "Retorno" ? ["Saiu", "Trancada"] : ["Ativa", "Trancada"];
+      if (!permitidos.includes(mat.status)) throw erro(`A matrícula está com a situação "${mat.status}" e não pode receber essa movimentação.`);
+      const nova = { ...mat, status: NOVO[f.tipo] };
+      upsert(db, "Matriculas", nova);
+      matriculas.push(nova);
+      movimentacoes.push(upsert(db, "Movimentacoes", { data: f.data || hojeIso(), alunoId: mat.alunoId, matriculaId: mat.id, tipo: f.tipo, motivo: String(f.motivo || "").trim(), obs: String(f.obs || "").trim(), registradoPor: "demo@escola.local" }));
+    });
+    const alunos = [];
+    [...new Set(matriculas.map((m) => m.alunoId))].forEach((alunoId) => {
+      const aluno = db.dados.alunos.find((x) => x.id === alunoId);
+      if (!aluno) return;
+      const resta = db.dados.matriculas.some((m) => m.alunoId === alunoId && ["Ativa", "Trancada", "Experimental"].includes(m.status));
+      const ativo = resta ? "Sim" : "Não";
+      if (aluno.ativo !== ativo) alunos.push(upsert(db, "Alunos", { ...aluno, ativo }));
+    });
+    gravar(db);
+    return { ok: true, mudancas: { matriculas, movimentacoes, alunos } };
+  },
+  avaliacaoFinal: async (t, f) => {
+    const db = ler();
+    const mat = db.dados.matriculas.find((m) => m.id === f.matriculaId);
+    if (!mat) throw erro("Matrícula não encontrada.");
+    if (!["Ativa", "Concluída"].includes(mat.status)) throw erro("A avaliação final é para matrículas ativas ou concluídas.");
+    const nota = f.nota === "" || f.nota === null || f.nota === undefined ? "" : Number(f.nota);
+    if (nota !== "" && (!Number.isFinite(nota) || nota < 0 || nota > 10)) throw erro("A nota deve estar entre 0 e 10.");
+    if (!f.conceito) throw erro("Escolha o conceito.");
+    if (!db.dados.avaliacoes) db.dados.avaliacoes = [];
+    const existente = db.dados.avaliacoes.find((a) => a.matriculaId === mat.id && a.tipo === "Final");
+    const avaliacao = upsert(db, "Avaliacoes", { id: existente ? existente.id : undefined, matriculaId: mat.id, tipo: "Final", data: f.data || hojeIso(), conceito: f.conceito, nota, comentario: String(f.comentario || "").trim(), professorId: f.professorId || "" });
+    const mudancas = { avaliacoes: [avaliacao] };
+    if (f.concluir && mat.status === "Ativa") {
+      const nova = { ...mat, status: "Concluída" };
+      upsert(db, "Matriculas", nova);
+      mudancas.matriculas = [nova];
+      mudancas.movimentacoes = [upsert(db, "Movimentacoes", { data: f.data || hojeIso(), alunoId: mat.alunoId, matriculaId: mat.id, tipo: "Conclusão", motivo: "Avaliação final", obs: "", registradoPor: "demo@escola.local" })];
+    }
+    gravar(db);
+    return { ok: true, mudancas };
   },
   resgatar: async (t, alunoId, premioId) => {
     const db = ler();

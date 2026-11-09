@@ -1,3 +1,6 @@
+// recursos novos do JavaScript para navegadores antigos (tablets com Chrome desatualizado)
+import "core-js/stable";
+import "regenerator-runtime/runtime";
 import React from "react";
 import { createRoot} from "react-dom/client";
 import { BrowserRouter } from "react-router-dom";

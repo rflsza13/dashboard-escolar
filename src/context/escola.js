@@ -7,9 +7,9 @@ import { DEFAULT_CONFIG, novoId, recursoLigado } from "utils/escola";
 const EscolaContext = createContext();
 EscolaContext.displayName = "EscolaContext";
 
-const CHAVE = { Alunos: "alunos", Professores: "professores", Escala: "escala", Cursos: "cursos", Modulos: "modulos", Matriculas: "matriculas", Aulas: "aulas", Progresso: "progresso", Pontos: "pontos", Premios: "premios" };
-const PREFIXO = { Alunos: "A", Professores: "PRF", Escala: "ESC", Cursos: "C", Modulos: "MOD", Matriculas: "MAT", Aulas: "AUL", Progresso: "PRG", Pontos: "P", Premios: "PR" };
-const VAZIO = { alunos: [], professores: [], escala: [], cursos: [], modulos: [], matriculas: [], aulas: [], progresso: [], pontos: [], premios: [], config: DEFAULT_CONFIG };
+const CHAVE = { Alunos: "alunos", Professores: "professores", Escala: "escala", Cursos: "cursos", Modulos: "modulos", Matriculas: "matriculas", Aulas: "aulas", Progresso: "progresso", Pontos: "pontos", Premios: "premios", Migracao: "migracao", Movimentacoes: "movimentacoes", Avaliacoes: "avaliacoes" };
+const PREFIXO = { Alunos: "A", Professores: "PRF", Escala: "ESC", Cursos: "C", Modulos: "MOD", Matriculas: "MAT", Aulas: "AUL", Progresso: "PRG", Pontos: "P", Premios: "PR", Migracao: "MIG", Movimentacoes: "MOV", Avaliacoes: "AVA" };
+const VAZIO = { alunos: [], professores: [], escala: [], cursos: [], modulos: [], matriculas: [], aulas: [], progresso: [], pontos: [], premios: [], migracao: [], movimentacoes: [], avaliacoes: [], config: DEFAULT_CONFIG };
 
 const TOKEN_KEY = "escola-id-token";
 
@@ -270,6 +270,11 @@ export function EscolaProvider({ children }) {
     [sair]
   );
 
+  // saída, trancamento e retorno de matrículas (guarda o histórico em Movimentacoes)
+  const movimentar = useCallback((form) => composto(() => api.movimentar(tokenRef.current, form)), [composto]);
+  // avaliação final do curso (pode concluir o curso junto)
+  const salvarAvaliacaoFinal = useCallback((form) => composto(() => api.avaliacaoFinal(tokenRef.current, form)), [composto]);
+
   const criarExperimental = useCallback((form) => composto(() => api.criarExperimental(tokenRef.current, form)), [composto]);
 
   /* ----- marcações da grade ----- */
@@ -332,6 +337,8 @@ export function EscolaProvider({ children }) {
         pontos: recursoLigado(cfgAtual, "recursoPontos"),
         professores: recursoLigado(cfgAtual, "recursoProfessores"),
         experimentais: recursoLigado(cfgAtual, "recursoExperimentais"),
+        avaliacoes: recursoLigado(cfgAtual, "recursoAvaliacoes"),
+        alertas: recursoLigado(cfgAtual, "recursoAlertas"),
       },
       pode: { admin: perfil === "Admin", professor: perfil === "Admin" || perfil === "Professor" },
       entrar,
@@ -345,9 +352,11 @@ export function EscolaProvider({ children }) {
       concluirModulo,
       resgatar,
       criarExperimental,
+      movimentar,
+      salvarAvaliacaoFinal,
       salvarConfig,
     };
-  }, [state, entrar, sair, carregar, limparErro, salvar, excluir, marcarSessao, agendarReposicao, concluirModulo, resgatar, criarExperimental, salvarConfig]);
+  }, [state, entrar, sair, carregar, limparErro, salvar, excluir, marcarSessao, agendarReposicao, concluirModulo, resgatar, criarExperimental, movimentar, salvarAvaliacaoFinal, salvarConfig]);
 
   return <EscolaContext.Provider value={value}>{children}</EscolaContext.Provider>;
 }

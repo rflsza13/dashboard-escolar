@@ -27,6 +27,10 @@ export const DEFAULT_CONFIG = {
   recursoPontos: true,
   recursoProfessores: true,
   recursoExperimentais: true,
+  recursoAvaliacoes: true,
+  recursoAlertas: true,
+  riscoFaltasSeguidas: 3,
+  riscoReposicoes: 2,
 };
 
 // Bônus de pontos do "bom comportamento" ao concluir um módulo (o servidor usa o mesmo valor)
@@ -37,6 +41,8 @@ export const RECURSOS = [
   { chave: "recursoPontos", rotulo: "Pontos e recompensas", ajuda: "Menu Pontos e prêmios, pontos nas fichas, nos módulos e na conclusão de módulo." },
   { chave: "recursoProfessores", rotulo: "Professores e escala", ajuda: "Menu Professores, nomes dos professores nas aulas e escala do dia no dashboard." },
   { chave: "recursoExperimentais", rotulo: "Aulas experimentais", ajuda: "Opção de cadastrar aula experimental em Nova aula." },
+  { chave: "recursoAvaliacoes", rotulo: "Avaliação final do curso", ajuda: "Avaliação final na ficha do aluno e no boletim." },
+  { chave: "recursoAlertas", rotulo: "Alertas de risco de evasão", ajuda: "Card Alunos em risco no dashboard e marcação na lista e na ficha do aluno." },
 ];
 export function recursoLigado(cfg, chave) {
   const v = cfg ? cfg[chave] : undefined;
@@ -399,6 +405,18 @@ export function resumoAluno(dados, alunoId, idx) {
   let faltas = 0;
   let reposicoes = 0;
   const aulas = [];
+  // saldo do sistema anterior (aba Migracao): soma às presenças/faltas lançadas aqui e às reposições pendentes
+  const idsMat = new Set(mats.map((m) => m.id));
+  const migrado = (dados.migracao || [])
+    .filter((x) => idsMat.has(x.matriculaId))
+    .reduce(
+      (t, x) => ({
+        presencas: t.presencas + (Number(x.presencas) || 0),
+        faltas: t.faltas + (Number(x.faltas) || 0),
+        reposicoesPendentes: t.reposicoesPendentes + (Number(x.reposicoesPendentes) || 0),
+      }),
+      { presencas: 0, faltas: 0, reposicoesPendentes: 0 }
+    );
   mats.forEach((m) =>
     (idx[m.id] || []).forEach((a) => {
       aulas.push(a);
@@ -407,8 +425,14 @@ export function resumoAluno(dados, alunoId, idx) {
       if (a.status === "Reposição realizada") reposicoes += 1;
     })
   );
+  const comReposicao = new Set((dados.aulas || []).filter((a) => a.reposicaoDe).map((a) => a.reposicaoDe));
+  const faltasSemRep = aulas.filter((a) => ehFalta(a.status) && (a.tipo || "Regular") !== "Reposição" && !comReposicao.has(a.id)).length;
+  presencas += migrado.presencas;
+  faltas += migrado.faltas;
   const marcadas = presencas + faltas;
   return {
+    migrado,
+    reposicoesPendentes: faltasSemRep + migrado.reposicoesPendentes,
     matriculas: mats.map((m) => ({ matricula: m, curso: cursos[m.cursoId] || { nome: "Curso removido", cor: "#E3242B" }, progresso: progressoMatricula(dados, m) })),
     aulas,
     presencas,
@@ -447,4 +471,66 @@ export function frequenciaAcumulada(aulas) {
     valores.push(Math.round((pres / (i + 1)) * 100));
   });
   return { labels, valores };
+}
+
+/* ---------- fases dos cursos ---------- */
+export const faseDoModulo = (m) => String((m && m.fase) || "").trim();
+
+// fases do curso na ordem em que aparecem nos módulos (vazio se o curso não usa fases)
+export function fasesDoCurso(modulos, cursoId) {
+  const lista = (modulos || []).filter((m) => m.cursoId === cursoId).sort((a, b) => Number(a.ordem) - Number(b.ordem));
+  const fases = [];
+  lista.forEach((m) => {
+    const f = faseDoModulo(m);
+    if (f && !fases.includes(f)) fases.push(f);
+  });
+  return fases;
+}
+
+// "Fase 2 · módulo 3 de 6" (curso com fases) ou "módulo 5 de 12" (sem fases)
+export function descricaoModulo(modulosDoCurso, m) {
+  if (!m) return "";
+  const todos = [...(modulosDoCurso || [])].sort((a, b) => Number(a.ordem) - Number(b.ordem));
+  const fase = faseDoModulo(m);
+  if (!fase) return `módulo ${m.ordem} de ${todos.length}`;
+  const daFase = todos.filter((x) => faseDoModulo(x) === fase);
+  const pos = daFase.findIndex((x) => x.id === m.id) + 1;
+  return `${fase} · módulo ${pos || m.ordem} de ${daFase.length}`;
+}
+
+/* ---------- saída, trancamento e histórico ---------- */
+export const MOTIVOS_SAIDA = ["Mudança de cidade", "Financeiro", "Horário incompatível", "Insatisfação", "Foi para outra escola", "Outro"];
+export const CONCEITOS = ["Excelente", "Muito bom", "Bom", "Regular", "Precisa melhorar"];
+
+export const rotuloSituacao = (status) => (status === "Saiu" ? "Saiu" : status === "Trancada" ? "Trancada" : status === "Concluída" ? "Concluída" : status === "Experimental" ? "Experimental" : "Ativa");
+
+/* ---------- alertas de risco de evasão ---------- */
+// Um aluno entra em risco com N faltas seguidas (sem presença no meio) ou M reposições pendentes.
+export function alertasDeRisco(dados, cfg) {
+  const limFaltas = Number(cfg && cfg.riscoFaltasSeguidas) || 3;
+  const limRep = Number(cfg && cfg.riscoReposicoes) || 2;
+  const idx = indexarAulas(dados);
+  const cursos = mapa(dados.cursos);
+  const alunos = mapa(dados.alunos);
+  const ids = [...new Set((dados.matriculas || []).filter((m) => m.status === "Ativa").map((m) => m.alunoId))];
+  const lista = [];
+  ids.forEach((alunoId) => {
+    const aluno = alunos[alunoId];
+    if (!aluno) return;
+    const motivos = [];
+    (dados.matriculas || [])
+      .filter((m) => m.alunoId === alunoId && m.status === "Ativa")
+      .forEach((m) => {
+        const marcadas = (idx[m.id] || [])
+          .filter((a) => (a.tipo || "Regular") !== "Experimental" && ["Presente", "Falta", "Reposição realizada"].includes(a.status))
+          .sort((a, b) => (a.data < b.data ? 1 : a.data > b.data ? -1 : 0));
+        let seguidas = 0;
+        for (let i = 0; i < marcadas.length && ehFalta(marcadas[i].status); i += 1) seguidas += 1;
+        if (seguidas >= limFaltas) motivos.push(`${seguidas} faltas seguidas em ${(cursos[m.cursoId] || {}).nome || "curso"}`);
+      });
+    const pendentes = resumoAluno(dados, alunoId, idx).reposicoesPendentes;
+    if (pendentes >= limRep) motivos.push(`${pendentes} reposições pendentes`);
+    if (motivos.length) lista.push({ aluno, motivos, nivel: motivos.length > 1 ? "alto" : "medio" });
+  });
+  return lista.sort((a, b) => b.motivos.length - a.motivos.length || a.aluno.nome.localeCompare(b.aluno.nome));
 }
