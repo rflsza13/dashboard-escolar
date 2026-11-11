@@ -15,7 +15,7 @@ function IconeStatus({ status }) {
 }
 IconeStatus.propTypes = { status: PropTypes.string.isRequired };
 
-function GradeSemanal({ dias, sessoes, onSelecionar }) {
+function GradeSemanal({ dias, sessoes, onSelecionar, feriados }) {
   const hoje = hojeIso();
 
   const porCelula = {};
@@ -40,6 +40,11 @@ function GradeSemanal({ dias, sessoes, onSelecionar }) {
             <VuiTypography variant="caption" color="text">
               {formatarDataCurta(d)}
             </VuiTypography>
+            {feriados[i] && (
+              <VuiTypography variant="caption" sx={{ display: "block", mt: "2px", color: "#F5A524", fontWeight: 700, lineHeight: 1.2 }}>
+                Feriado · {feriados[i].nome}
+              </VuiTypography>
+            )}
           </VuiBox>
         ))}
 
@@ -50,8 +55,8 @@ function GradeSemanal({ dias, sessoes, onSelecionar }) {
                 {faixa}
               </VuiTypography>
             </VuiBox>
-            {dias.map((d) => (
-              <VuiBox key={`${d}|${faixa}`} sx={{ borderTop: borda, borderLeft: borda, p: "4px", minHeight: 70, background: d === hoje ? "rgba(227,36,43,0.07)" : "transparent" }}>
+            {dias.map((d, i) => (
+              <VuiBox key={`${d}|${faixa}`} sx={{ borderTop: borda, borderLeft: borda, p: "4px", minHeight: 70, background: feriados[i] ? "rgba(245,165,36,0.07)" : d === hoje ? "rgba(227,36,43,0.07)" : "transparent" }}>
                 {(porCelula[`${d}|${faixa}`] || []).map((s) => (
                   <VuiBox
                     key={s.chave}
@@ -86,7 +91,9 @@ function GradeSemanal({ dias, sessoes, onSelecionar }) {
   );
 }
 
+GradeSemanal.defaultProps = { feriados: [] };
 GradeSemanal.propTypes = {
+  feriados: PropTypes.array,
   dias: PropTypes.arrayOf(PropTypes.string).isRequired,
   sessoes: PropTypes.array.isRequired,
   onSelecionar: PropTypes.func.isRequired,

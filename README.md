@@ -22,17 +22,18 @@ Painel de gestão para escolas de **programação, robótica e inglês**: grade 
 ## O que o painel faz
 
 **Dia a dia**
-- **Dashboard** com relógio, aulas e andamento dos cursos do dia, presenças e faltas de hoje, alunos que mais faltam, **alunos em risco de evasão** e professores do dia.
+- **Dashboard** com relógio, aulas e andamento do dia por horário, presenças e faltas de hoje, alunos que mais faltam, **alunos em risco de evasão** e professores do dia.
 - **Horário das aulas** em grade semanal de segunda a sábado, com os intervalos da escola (aulas de 1h30 e experimentais de 1h). Seletor entre **Programação / Robótica** e **Inglês**, com cores por tipo de curso, por modalidade online, por reposição e por aula experimental. Presença, falta e reposição são marcadas direto na grade.
-- **Aulas avulsas e experimentais**, com o professor responsável pela experimental.
+- **Aulas avulsas, de reposição e experimentais** pelo menu Nova aula (a reposição já liga à falta que está sendo reposta), com o professor responsável pela experimental. Uma aula pode ser **cancelada** só naquele dia (e restaurada depois) ou **apagada** da grade.
+- **Feriados**: os feriados nacionais são identificados sozinhos e as aulas regulares desses dias saem da grade. Feriados estaduais e municipais, recessos e exceções (dia com aula em feriado) são cadastrados em Configurações.
 - **Atualização automática** dos dados a cada 2 minutos, para vários professores usarem ao mesmo tempo.
 
 **Alunos e cursos**
 - **Cadastro de aluno já na grade**, com um ou mais cursos e horários, e **ficha do aluno** com presença, faltas, reposições pendentes, módulo atual, gráficos de acompanhamento e pontos.
 - **Cursos e módulos**, com **fases** (por exemplo nos cursos de robótica, em que cada fase tem vários módulos). Tipos de curso: Programação, Robótica 1, Robótica 2 e Inglês.
-- **Saldo do sistema anterior**: contadores de presenças, faltas e reposições pendentes para quem veio de outro sistema.
+- **Saldo do sistema anterior**: contadores de presenças, faltas e reposições pendentes para quem veio de outro sistema. O bloco fica oculto e só aparece ao ligar o interruptor em Configurações; depois da migração, basta desligar.
 - **Saída, trancamento e reativação** de matrículas, com motivo e **histórico de movimentações**.
-- **Avaliação final do curso** (conceito, nota opcional e comentário) e **boletim** do aluno para imprimir ou salvar em PDF.
+- **Notas por módulo** (ao concluir o módulo ou depois, na ficha), **avaliação final do curso** (conceito, nota opcional e comentário) e **boletim** do aluno, com a nota de cada módulo e a média, para imprimir ou salvar em PDF.
 - **Alertas de risco de evasão**: faltas seguidas ou reposições pendentes acima do limite que você define.
 
 **Equipe**
@@ -42,7 +43,7 @@ Painel de gestão para escolas de **programação, robótica e inglês**: grade 
 - **Pontos e prêmios**: pontos por módulo concluído (com bônus de bom comportamento), pontos manuais, catálogo de prêmios, resgates e ranking.
 
 **Administração**
-- **Configurações** pelo próprio painel: nome da escola, pontos padrão, limites dos alertas, cores da grade e dos cursos, e **interruptores** para ligar ou desligar funcionalidades (pontos, professores, aulas experimentais, avaliações e alertas). Tudo é gravado na aba `Config` da planilha.
+- **Configurações** pelo próprio painel: nome da escola, pontos padrão, limites dos alertas, cores da grade e dos cursos, e **interruptores** para ligar ou desligar funcionalidades (pontos, professores, aulas experimentais, avaliações e notas, saldo do sistema anterior, feriados e alertas). Tudo é gravado na aba `Config` da planilha.
 - **Login com a conta Google uma única vez** (a sessão dura 180 dias, até clicar em sair) e **três perfis de acesso**.
 - **Visual próprio**: tema vermelho e preto, cards foscos transparentes, tela de login com imagem, barra de rolagem na cor do tema e menu lateral que expande com o mouse (e abre por um botão no celular).
 - **Modo demonstração**: sem configurar nada, o painel abre com dados fictícios guardados no navegador, ótimo para testar.
@@ -107,8 +108,10 @@ O passo a passo completo, com os detalhes do Google Cloud e do Apps Script, est�
 
 ## Personalização
 
-- **Cores, fundo e login:** `src/themeConfig.js` concentra a cor principal, o fundo (imagem por URL ou degradê), os cards foscos, a barra de rolagem, a caixa de seleção e a tela de login (imagem, título e mensagem de boas-vindas).
+- **Cores, fundo e login:** `src/themeConfig.js` concentra a cor principal, o fundo (imagem por URL ou degradê), os cards foscos, a barra de rolagem, a caixa de seleção e a tela de login (imagem de fundo por URL ou arquivo da pasta `public` com tamanho e posição configuráveis (`imageSize`, `imagePosition`), logo com tamanho configurável em `login.logo`, título e mensagem de boas-vindas).
 - **Nomes do menu lateral:** `src/routes.js`, no campo `name` de cada item.
+- **Nome da escola no menu lateral:** o tamanho da letra se ajusta sozinho ao tamanho do nome, sempre em uma linha. Os limites ficam em `sidenavTitle`, no `src/themeConfig.js`.
+- **Ícone:** `public/favicon.png` é o ícone da aba do navegador e, por padrão, também o ícone ao lado do nome da escola no menu lateral. Arquivo, tamanho e fundo do ícone do menu ficam em `sidenavIcon`, no `src/themeConfig.js` (para uma imagem escura, use `background: "#ffffff"` e `padding: 3`).
 - **Parâmetros do dia a dia:** tela **Configurações** do próprio painel (nome da escola, pontos, limites de alerta, cores e interruptores).
 - **Novo interruptor de funcionalidade:** adicione uma entrada em `RECURSOS` (`src/utils/escola.js`) e em `CONFIG_CHAVES` (`apps-script/Code.gs`).
 

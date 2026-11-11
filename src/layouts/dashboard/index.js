@@ -16,7 +16,7 @@ import { IoSchool, IoCheckmarkDone, IoCloseCircle, IoRepeat, IoCalendar } from "
 
 import { useEscola } from "context/escola";
 import {
-  alertasDeRisco, andamentoPorCurso, DEFAULT_CONFIG, ehFalta, ehPresenca, escalaDoDia, faltasSemReposicao, fimDaAula, hojeIso, montarSessoes,
+  alertasDeRisco, andamentoPorHorario, DEFAULT_CONFIG, feriadoDaData, ehFalta, ehPresenca, escalaDoDia, faltasSemReposicao, fimDaAula, hojeIso, montarSessoes,
   rankingFaltas, segundaDaSemana, somarDias,
 } from "utils/escola";
 
@@ -37,7 +37,8 @@ function Dashboard() {
   const sessoesHoje = useMemo(() => montarSessoes(dados, hoje, hoje), [dados, hoje]);
   const segunda = segundaDaSemana(hoje);
   const sessoesSemana = useMemo(() => montarSessoes(dados, segunda, somarDias(segunda, 5)), [dados, segunda]);
-  const cursosDoDia = useMemo(() => andamentoPorCurso(sessoesHoje), [sessoesHoje]);
+  const horariosDoDia = useMemo(() => andamentoPorHorario(sessoesHoje), [sessoesHoje]);
+  const feriadoHoje = feriadoDaData(dados, hoje);
   const ranking = useMemo(() => rankingFaltas(dados, hoje, Number(cfg.rankingDias) || 90, 8), [dados, hoje, cfg.rankingDias]);
   const semReposicao = useMemo(() => faltasSemReposicao(dados, hoje, 60), [dados, hoje]);
   const equipeHoje = useMemo(() => escalaDoDia(dados, hoje), [dados, hoje]);
@@ -97,25 +98,37 @@ function Dashboard() {
           <Grid item xs={12} xl={8}>
             <Card>
               <VuiTypography variant="lg" color="white" fontWeight="bold" mb="4px">
-                Andamento dos cursos de hoje
+                Andamento das aulas de hoje
               </VuiTypography>
               <VuiTypography variant="button" color="text" fontWeight="regular" mb="20px" sx={{ display: "block" }}>
-                Clique em um aluno para marcar presença, falta ou reposição.
+                Por horário. Clique em um aluno para marcar presença, falta ou reposição.
               </VuiTypography>
-              {cursosDoDia.length === 0 && (
+              {feriadoHoje && (
+                <VuiBox sx={{ mb: 2, p: "10px 14px", borderRadius: "12px", borderLeft: "4px solid #F5A524", background: "rgba(245,165,36,0.10)" }}>
+                  <VuiTypography variant="button" color="white" fontWeight="bold" sx={{ display: "block" }}>
+                    Hoje é feriado: {feriadoHoje.nome}
+                  </VuiTypography>
+                  <VuiTypography variant="caption" color="text">
+                    As aulas regulares não aparecem hoje. Aulas avulsas, reposições e experimentais já marcadas continuam na lista.
+                  </VuiTypography>
+                </VuiBox>
+              )}
+              {horariosDoDia.length === 0 && (
                 <VuiTypography variant="button" color="text" fontWeight="regular">
-                  Nenhuma aula marcada para hoje.
+                  {feriadoHoje ? "Sem aulas hoje." : "Nenhuma aula marcada para hoje."}
                 </VuiTypography>
               )}
-              {cursosDoDia.map((g) => {
+              {horariosDoDia.map((g) => {
                 const pct = g.total ? (g.marcadas / g.total) * 100 : 0;
                 return (
-                  <VuiBox key={g.cursoId} mb={3}>
+                  <VuiBox key={g.hora} mb={3}>
                     <VuiBox display="flex" justifyContent="space-between" alignItems="center" mb="6px">
-                      <VuiBox display="flex" alignItems="center" gap="8px">
-                        <VuiBox sx={{ width: 10, height: 10, borderRadius: "3px", background: g.sessoes[0].cor }} />
-                        <VuiTypography variant="button" color="white" fontWeight="bold">
-                          {g.curso}
+                      <VuiBox display="flex" alignItems="baseline" gap="8px">
+                        <VuiTypography variant="button" color="white" fontWeight="bold" sx={{ fontSize: "16px" }}>
+                          {g.hora}
+                        </VuiTypography>
+                        <VuiTypography variant="caption" color="text">
+                          {g.total} {g.total === 1 ? "aula" : "aulas"}
                         </VuiTypography>
                       </VuiBox>
                       <VuiTypography variant="caption" color="text">
@@ -136,11 +149,11 @@ function Dashboard() {
                         >
                           <VuiBox>
                             <VuiTypography variant="button" color="white" fontWeight="medium" sx={{ display: "block" }}>
-                              {s.hora}
-                              {fimDaAula(s.hora, s.duracao) ? `–${fimDaAula(s.hora, s.duracao)}` : ""} · {s.aluno}
+                              {s.aluno}
                             </VuiTypography>
                             <VuiTypography variant="caption" color="text">
-                              {s.tags.length ? s.tags.join(" · ") : "Aula regular"}
+                              {s.curso} · {s.tags.length ? s.tags.join(" · ") : "Aula regular"}
+                              {fimDaAula(s.hora, s.duracao) ? ` · até ${fimDaAula(s.hora, s.duracao)}` : ""}
                               {s.moduloOrdem ? ` · módulo ${s.moduloOrdem}` : ""}
                               {s.professores.length ? ` · Prof.: ${s.professores.join(", ")}` : ""}
                             </VuiTypography>

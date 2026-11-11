@@ -18,7 +18,8 @@ import SaldoAnterior from "layouts/alunos/components/SaldoAnterior";
 import MovimentacaoDialog from "layouts/alunos/components/MovimentacaoDialog";
 import AvaliacaoFinalDialog from "layouts/alunos/components/AvaliacaoFinalDialog";
 import HistoricoMovimentacoes from "layouts/alunos/components/HistoricoMovimentacoes";
-import { DIAS_LONGOS, DURACAO_AULA, DURACAO_EXPERIMENTAL, alertasDeRisco, descricaoModulo, faseDoModulo, formatarData, frequenciaAcumulada, indexarAulas, resumoAluno, rotuloSituacao, serieMensal } from "utils/escola";
+import NotaModuloDialog from "layouts/alunos/components/NotaModuloDialog";
+import { DIAS_LONGOS, DURACAO_AULA, DURACAO_EXPERIMENTAL, alertasDeRisco, descricaoModulo, faseDoModulo, formatarData, formatarNota, frequenciaAcumulada, indexarAulas, resumoAluno, rotuloSituacao, serieMensal } from "utils/escola";
 
 import BarraStatus from "layouts/shared/BarraStatus";
 import StatusChip from "layouts/shared/StatusChip";
@@ -42,6 +43,7 @@ function FichaAluno() {
   const [concluindo, setConcluindo] = useState("");
   const [movDlg, setMovDlg] = useState({ open: false, tipo: "Saída", itens: [] });
   const [avalDlg, setAvalDlg] = useState({ open: false, item: null });
+  const [notaDlg, setNotaDlg] = useState({ open: false, item: null });
 
   const aluno = dados.alunos.find((a) => a.id === id);
   const idx = useMemo(() => indexarAulas(dados), [dados]);
@@ -173,10 +175,10 @@ function FichaAluno() {
               <MiniStatisticsCard title={{ text: "presenças" }} count={String(r.presencas)} percentage={{ color: "success", text: r.reposicoes ? `${r.reposicoes} em reposição` : "" }} icon={{ color: "info", component: icone(IoCheckmarkDone) }} />
             </Grid>
             <Grid item xs={12} md={6} xl>
-              <MiniStatisticsCard title={{ text: "faltas" }} count={String(r.faltas)} percentage={{ color: "error", text: r.migrado.faltas ? `${r.migrado.faltas} do sistema anterior` : "" }} icon={{ color: "info", component: icone(IoCloseCircle) }} />
+              <MiniStatisticsCard title={{ text: "faltas" }} count={String(r.faltas)} percentage={{ color: "error", text: "" }} icon={{ color: "info", component: icone(IoCloseCircle) }} />
             </Grid>
             <Grid item xs={12} md={6} xl>
-              <MiniStatisticsCard title={{ text: "reposições pendentes" }} count={String(r.reposicoesPendentes)} percentage={{ color: r.reposicoesPendentes ? "warning" : "success", text: r.migrado.reposicoesPendentes ? `${r.migrado.reposicoesPendentes} do sistema anterior` : "" }} icon={{ color: "info", component: icone(IoRefresh) }} />
+              <MiniStatisticsCard title={{ text: "reposições pendentes" }} count={String(r.reposicoesPendentes)} percentage={{ color: r.reposicoesPendentes ? "warning" : "success", text: "" }} icon={{ color: "info", component: icone(IoRefresh) }} />
             </Grid>
             {recursos.pontos && (
             <Grid item xs={12} md={6} xl>
@@ -186,7 +188,7 @@ function FichaAluno() {
           </Grid>
         </VuiBox>
 
-        <SaldoAnterior matriculas={r.matriculas} />
+        {recursos.migracao && pode.professor && <SaldoAnterior matriculas={r.matriculas} />}
 
         {r.matriculas.length === 0 && (
           <Card sx={{ mb: 3 }}>
@@ -225,6 +227,7 @@ function FichaAluno() {
                     <>
                       <VuiTypography variant="button" color="white" fontWeight="medium" sx={{ display: "block", mt: 2, mb: 1.5 }}>
                         {m.status === "Concluída" ? "Curso concluído" : progresso.atual ? `Módulo atual: ${descricaoModulo(progresso.itens.map((x) => x.modulo), progresso.atual.modulo)} · ${progresso.atual.modulo.nome}` : "Sem módulos cadastrados para este curso"}
+                        {recursos.avaliacoes && progresso.media !== null && <span style={{ color: "#01B574" }}>{`  ·  Média dos módulos: ${formatarNota(progresso.media)}`}</span>}
                       </VuiTypography>
                       {progresso.itens.map((i, pos) => (
                         <VuiBox key={i.modulo.id}>
@@ -237,10 +240,24 @@ function FichaAluno() {
                           <VuiTypography variant="caption" color="white" fontWeight="medium">
                             {i.modulo.ordem}. {i.modulo.nome}
                           </VuiTypography>
-                          <VuiTypography variant="caption" color="text">
-                            {TXT_ESTADO[i.estado]}
-                            {i.data ? ` em ${formatarData(i.data)}` : ""}
-                          </VuiTypography>
+                          <VuiBox display="flex" alignItems="center" gap="10px">
+                            <VuiTypography variant="caption" color="text">
+                              {TXT_ESTADO[i.estado]}
+                              {i.data ? ` em ${formatarData(i.data)}` : ""}
+                            </VuiTypography>
+                            {recursos.avaliacoes && i.estado === "concluido" && (
+                              <>
+                                <VuiTypography variant="caption" color="white" fontWeight="bold">
+                                  {i.nota !== null ? `Nota ${formatarNota(i.nota)}` : "Sem nota"}
+                                </VuiTypography>
+                                {pode.professor && (
+                                  <VuiButton size="small" color="info" variant="text" onClick={() => setNotaDlg({ open: true, item: { matricula: m, modulo: i.modulo, nota: i.nota, temRegistro: i.temRegistro } })} sx={{ minWidth: 0, px: 1 }}>
+                                    {i.nota !== null ? "Editar" : "Dar nota"}
+                                  </VuiButton>
+                                )}
+                              </>
+                            )}
+                          </VuiBox>
                         </VuiBox>
                         </VuiBox>
                       ))}
@@ -428,6 +445,7 @@ function FichaAluno() {
       </VuiBox>
       <AlunoDialog open={editar} aluno={aluno} onClose={() => setEditar(false)} />
       <MatriculaDialog open={mat.open} matricula={mat.matricula} alunoId={aluno.id} onClose={() => setMat({ open: false, matricula: null })} />
+      <NotaModuloDialog open={notaDlg.open} item={notaDlg.item} onClose={() => setNotaDlg((x) => ({ ...x, open: false }))} />
       <MovimentacaoDialog open={movDlg.open} tipo={movDlg.tipo} itens={movDlg.itens} onClose={() => setMovDlg((x) => ({ ...x, open: false }))} />
       <AvaliacaoFinalDialog open={avalDlg.open} item={avalDlg.item} existente={avalDlg.item ? avaliacaoDe(avalDlg.item.matricula.id) : undefined} onClose={() => setAvalDlg((x) => ({ ...x, open: false }))} />
     </DashboardLayout>

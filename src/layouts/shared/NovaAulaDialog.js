@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import PropTypes from "prop-types";
 
 import Dialog from "@mui/material/Dialog";
@@ -12,10 +12,10 @@ import VuiInput from "components/VuiInput";
 import VuiButton from "components/VuiButton";
 
 import { useEscola } from "context/escola";
-import { DURACAO_EXPERIMENTAL, hojeIso, dataDeIso } from "utils/escola";
+import { DURACAO_EXPERIMENTAL, ehFalta, formatarData, hojeIso, dataDeIso } from "utils/escola";
 import { FieldLabel, NativeSelect, dialogPaper } from "layouts/shared/fields";
 
-const vazio = () => ({ tipo: "Experimental", nome: "", contato: "", cursoId: "", professorId: "", matriculaId: "", data: hojeIso(), hora: "", modalidade: "Presencial" });
+const vazio = () => ({ tipo: "Experimental", nome: "", contato: "", cursoId: "", professorId: "", matriculaId: "", faltaId: "", data: hojeIso(), hora: "", modalidade: "Presencial" });
 
 function NovaAulaDialog({ open, dataInicial, onClose }) {
   const { dados, salvar, criarExperimental, recursos } = useEscola();
@@ -34,6 +34,21 @@ function NovaAulaDialog({ open, dataInicial, onClose }) {
   const cursoDe = (id) => (dados.cursos.find((c) => c.id === id) || {}).nome || "?";
   const matriculasAtivas = dados.matriculas.filter((m) => m.status === "Ativa");
   const experimental = f.tipo === "Experimental";
+  const reposicao = f.tipo === "Reposição";
+
+  // faltas da matrícula escolhida que ainda não têm reposição agendada (a mais antiga primeiro)
+  const pendentesDe = (matId) => {
+    const comRep = new Set(dados.aulas.filter((a) => a.reposicaoDe).map((a) => a.reposicaoDe));
+    return dados.aulas
+      .filter((a) => a.matriculaId === matId && ehFalta(a.status) && (a.tipo || "Regular") !== "Reposição" && !comRep.has(a.id))
+      .sort((a, b) => String(a.data).localeCompare(String(b.data)));
+  };
+  const faltasPendentes = useMemo(() => (f.matriculaId ? pendentesDe(f.matriculaId) : []), [dados.aulas, f.matriculaId]); // eslint-disable-line
+  const escolherMatricula = (e) => {
+    const matId = e.target.value;
+    const pend = matId ? pendentesDe(matId) : [];
+    setF((x) => ({ ...x, matriculaId: matId, faltaId: pend.length ? pend[0].id : "" }));
+  };
   const professoresAtivos = recursos.professores ? dados.professores.filter((p) => p.ativo !== "Não") : [];
 
   const validar = () => {
@@ -73,6 +88,9 @@ function NovaAulaDialog({ open, dataInicial, onClose }) {
     if (experimental) {
       const r = await criarExperimental({ nome: f.nome.trim(), contato: f.contato.trim(), cursoId: f.cursoId, professorId: f.professorId, data: f.data, hora: f.hora, duracao: DURACAO_EXPERIMENTAL, modalidade: f.modalidade });
       ok = r.ok;
+    } else if (reposicao) {
+      const m = dados.matriculas.find((x) => x.id === f.matriculaId);
+      ok = !!(await salvar("Aulas", { data: f.data, matriculaId: f.matriculaId, status: "Reposição agendada", tipo: "Reposição", hora: f.hora, modalidade: f.modalidade, modulo: m ? m.moduloAtual : "", reposicaoDe: f.faltaId || "", obs: "" }));
     } else {
       const m = dados.matriculas.find((x) => x.id === f.matriculaId);
       ok = !!(await salvar("Aulas", { data: f.data, matriculaId: f.matriculaId, status: "", tipo: "Avulsa", hora: f.hora, modalidade: f.modalidade, modulo: m ? m.moduloAtual : "", reposicaoDe: "", obs: "" }));
@@ -97,15 +115,17 @@ function NovaAulaDialog({ open, dataInicial, onClose }) {
       </DialogTitle>
       <DialogContent>
         <VuiBox display="flex" gap="8px" mb={2} mt={1}>
-          {(recursos.experimentais ? ["Experimental", "Avulsa"] : ["Avulsa"]).map((t) => (
+          {[...(recursos.experimentais ? ["Experimental"] : []), "Avulsa", "Reposição"].map((t) => (
             <VuiButton key={t} size="small" color="info" variant={f.tipo === t ? "contained" : "outlined"} onClick={() => setF((x) => ({ ...x, tipo: t }))}>
-              {t === "Experimental" ? "Aula experimental" : "Aula avulsa"}
+              {t === "Experimental" ? "Aula experimental" : t === "Avulsa" ? "Aula avulsa" : "Aula de reposição"}
             </VuiButton>
           ))}
         </VuiBox>
         <VuiTypography variant="caption" color="text" sx={{ display: "block", mb: 2 }}>
           {experimental
             ? "Para um visitante: ele é cadastrado como não ativo e a aula aparece só na data escolhida."
+            : reposicao
+            ? "Repõe uma falta do aluno. A falta escolhida deixa de contar como reposição pendente. Regras: no máximo 2 reposições no mesmo dia e 30 dias entre reposições do aluno."
             : "Aula extra de um aluno já matriculado, fora do dia e horário fixos."}
         </VuiTypography>
 
@@ -151,7 +171,7 @@ function NovaAulaDialog({ open, dataInicial, onClose }) {
           ) : (
             <VuiBox sx={{ gridColumn: "1 / -1" }}>
               <FieldLabel>Aluno e curso</FieldLabel>
-              <NativeSelect value={f.matriculaId} onChange={set("matriculaId")}>
+              <NativeSelect value={f.matriculaId} onChange={escolherMatricula}>
                 <option value="">Escolha…</option>
                 {matriculasAtivas.map((m) => (
                   <option key={m.id} value={m.id}>
@@ -160,6 +180,24 @@ function NovaAulaDialog({ open, dataInicial, onClose }) {
                 ))}
               </NativeSelect>
               {erro("matriculaId")}
+              {reposicao && f.matriculaId && (
+                <VuiBox mt={2}>
+                  <FieldLabel>Falta que será reposta</FieldLabel>
+                  <NativeSelect value={f.faltaId} onChange={set("faltaId")}>
+                    <option value="">Sem falta registrada (ex.: falta do sistema anterior)</option>
+                    {faltasPendentes.map((a) => (
+                      <option key={a.id} value={a.id}>
+                        Falta de {formatarData(a.data)}
+                      </option>
+                    ))}
+                  </NativeSelect>
+                  {faltasPendentes.length === 0 && (
+                    <VuiTypography variant="caption" color="text" sx={{ display: "block", mt: "4px" }}>
+                      Este aluno não tem faltas pendentes de reposição registradas aqui.
+                    </VuiTypography>
+                  )}
+                </VuiBox>
+              )}
             </VuiBox>
           )}
           <VuiBox>

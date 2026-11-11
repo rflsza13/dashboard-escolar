@@ -29,6 +29,8 @@ export const DEFAULT_CONFIG = {
   recursoExperimentais: true,
   recursoAvaliacoes: true,
   recursoAlertas: true,
+  recursoMigracao: false,
+  recursoFeriados: true,
   riscoFaltasSeguidas: 3,
   riscoReposicoes: 2,
 };
@@ -41,12 +43,14 @@ export const RECURSOS = [
   { chave: "recursoPontos", rotulo: "Pontos e recompensas", ajuda: "Menu Pontos e prêmios, pontos nas fichas, nos módulos e na conclusão de módulo." },
   { chave: "recursoProfessores", rotulo: "Professores e escala", ajuda: "Menu Professores, nomes dos professores nas aulas e escala do dia no dashboard." },
   { chave: "recursoExperimentais", rotulo: "Aulas experimentais", ajuda: "Opção de cadastrar aula experimental em Nova aula." },
-  { chave: "recursoAvaliacoes", rotulo: "Avaliação final do curso", ajuda: "Avaliação final na ficha do aluno e no boletim." },
+  { chave: "recursoAvaliacoes", rotulo: "Avaliações (notas e avaliação final)", ajuda: "Nota de cada módulo, avaliação final do curso, ficha do aluno e boletim." },
+  { chave: "recursoMigracao", rotulo: "Saldo do sistema anterior (migração)", ajuda: "Mostra na ficha do aluno os contadores para lançar presenças, faltas e reposições pendentes do sistema antigo. Desligado, o bloco some, mas o que já foi lançado continua somando." },
+  { chave: "recursoFeriados", rotulo: "Feriados", ajuda: "Tira as aulas regulares dos feriados nacionais e dos dias cadastrados em Configurações → Feriados." },
   { chave: "recursoAlertas", rotulo: "Alertas de risco de evasão", ajuda: "Card Alunos em risco no dashboard e marcação na lista e na ficha do aluno." },
 ];
 export function recursoLigado(cfg, chave) {
   const v = cfg ? cfg[chave] : undefined;
-  if (v === undefined || v === null || v === "") return true;
+  if (v === undefined || v === null || v === "") return chave in DEFAULT_CONFIG ? DEFAULT_CONFIG[chave] !== false : true;
   if (typeof v === "boolean") return v;
   return !["não", "nao", "false", "0", "n"].includes(String(v).trim().toLowerCase());
 }
@@ -255,6 +259,7 @@ function criarSessao(m, aula, data, tipo, cfg, alunos, cursos, blocos, profs) {
     data,
     hora,
     // aula experimental: vale o professor responsável escolhido no cadastro; as demais seguem a escala da grade
+    cancelada: !!(aula && aula.status === "Cancelada"),
     professorId: (aula && aula.professorId) || "",
     professores: !recursoLigado(cfg, "recursoProfessores")
       ? []
@@ -280,7 +285,7 @@ function criarSessao(m, aula, data, tipo, cfg, alunos, cursos, blocos, profs) {
   };
 }
 
-export function montarSessoes(dados, deIso, ateIso) {
+export function montarSessoes(dados, deIso, ateIso, opcoes = {}) {
   const cfg = { ...DEFAULT_CONFIG, ...(dados.config || {}) };
   const alunos = mapa(dados.alunos);
   const cursosCor = cursosComCor(dados.cursos);
@@ -301,6 +306,8 @@ export function montarSessoes(dados, deIso, ateIso) {
   });
 
   for (let d = deIso; d <= ateIso; d = somarDias(d, 1)) {
+    // feriado: as aulas regulares do dia não são geradas (aulas avulsas, reposições e experimentais já cadastradas continuam)
+    if (feriadoDaData(dados, d)) continue;
     const sigla = siglaDia(d);
     (dados.matriculas || []).forEach((m) => {
       if (m.status !== "Ativa" || m.dia !== sigla) return;
@@ -310,10 +317,9 @@ export function montarSessoes(dados, deIso, ateIso) {
     });
   }
 
-  return sessoes.sort(
-    (a, b) =>
-      a.data.localeCompare(b.data) || horaParaMin(a.hora) - horaParaMin(b.hora) || a.aluno.localeCompare(b.aluno, "pt-BR")
-  );
+  return sessoes
+    .filter((s) => opcoes.comCanceladas || !s.cancelada)
+    .sort((a, b) => a.data.localeCompare(b.data) || horaParaMin(a.hora) - horaParaMin(b.hora) || a.aluno.localeCompare(b.aluno, "pt-BR"));
 }
 
 /* ---------- indicadores ---------- */
@@ -386,12 +392,15 @@ export function progressoMatricula(dados, mat) {
     const reg = prog.find((p) => p.moduloId === modulo.id);
     const concluido = !!reg || Number(modulo.ordem) < Number(mat.moduloAtual) || mat.status === "Concluída";
     const estado = concluido ? "concluido" : Number(modulo.ordem) === Number(mat.moduloAtual) ? "atual" : "pendente";
-    return { modulo, estado, data: reg ? reg.concluidoEm : "" };
+    const nota = reg && reg.nota !== "" && reg.nota !== null && reg.nota !== undefined && Number.isFinite(Number(reg.nota)) ? Number(reg.nota) : null;
+    return { modulo, estado, data: reg ? reg.concluidoEm : "", nota, temRegistro: !!reg };
   });
   const concluidos = itens.filter((i) => i.estado === "concluido").length;
+  const notas = itens.filter((i) => i.nota !== null).map((i) => i.nota);
   return {
     itens,
     concluidos,
+    media: notas.length ? notas.reduce((t, n) => t + n, 0) / notas.length : null,
     total: itens.length,
     pct: itens.length ? concluidos / itens.length : 0,
     atual: itens.find((i) => i.estado === "atual") || null,
@@ -427,12 +436,15 @@ export function resumoAluno(dados, alunoId, idx) {
   );
   const comReposicao = new Set((dados.aulas || []).filter((a) => a.reposicaoDe).map((a) => a.reposicaoDe));
   const faltasSemRep = aulas.filter((a) => ehFalta(a.status) && (a.tipo || "Regular") !== "Reposição" && !comReposicao.has(a.id)).length;
+  // reposição marcada sem falta de origem (ex.: falta do sistema anterior) abate o saldo pendente lançado em Migracao
+  const reposSemOrigem = aulas.filter((a) => (a.tipo || "Regular") === "Reposição" && !a.reposicaoDe && a.status !== "Cancelada").length;
+  const migradoPendente = Math.max(0, migrado.reposicoesPendentes - reposSemOrigem);
   presencas += migrado.presencas;
   faltas += migrado.faltas;
   const marcadas = presencas + faltas;
   return {
     migrado,
-    reposicoesPendentes: faltasSemRep + migrado.reposicoesPendentes,
+    reposicoesPendentes: faltasSemRep + migradoPendente,
     matriculas: mats.map((m) => ({ matricula: m, curso: cursos[m.cursoId] || { nome: "Curso removido", cor: "#E3242B" }, progresso: progressoMatricula(dados, m) })),
     aulas,
     presencas,
@@ -533,4 +545,98 @@ export function alertasDeRisco(dados, cfg) {
     if (motivos.length) lista.push({ aluno, motivos, nivel: motivos.length > 1 ? "alto" : "medio" });
   });
   return lista.sort((a, b) => b.motivos.length - a.motivos.length || a.aluno.nome.localeCompare(b.aluno.nome));
+}
+
+// Nota de 0 a 10 escrita pelo usuário ("8,5" ou "8.5"): "" = sem nota, null = inválida
+export function lerNota(texto) {
+  const t = String(texto === null || texto === undefined ? "" : texto).trim();
+  if (!t) return "";
+  const n = Number(t.replace(",", "."));
+  return Number.isFinite(n) && n >= 0 && n <= 10 ? Math.round(n * 10) / 10 : null;
+}
+export const formatarNota = (n) => (n === null || n === undefined || n === "" ? "—" : Number(n).toLocaleString("pt-BR", { minimumFractionDigits: 1, maximumFractionDigits: 1 }));
+
+/* ---------- feriados ---------- */
+// Páscoa (algoritmo de Meeus/Jones/Butcher), em AAAA-MM-DD
+function pascoaIso(ano) {
+  const a = ano % 19;
+  const b = Math.floor(ano / 100);
+  const c = ano % 100;
+  const d = Math.floor(b / 4);
+  const e = b % 4;
+  const f = Math.floor((b + 8) / 25);
+  const g = Math.floor((b - f + 1) / 3);
+  const h = (19 * a + b - d - g + 15) % 30;
+  const i = Math.floor(c / 4);
+  const k = c % 4;
+  const l = (32 + 2 * e + 2 * i - h - k) % 7;
+  const m = Math.floor((a + 11 * h + 22 * l) / 451);
+  const mes = Math.floor((h + l - 7 * m + 114) / 31);
+  const dia = ((h + l - 7 * m + 114) % 31) + 1;
+  return `${ano}-${String(mes).padStart(2, "0")}-${String(dia).padStart(2, "0")}`;
+}
+
+const cacheFeriados = {};
+// feriados nacionais (e o Carnaval e o Corpus Christi, pontos facultativos em que a maioria das escolas não funciona) de um ano
+export function feriadosNacionais(ano) {
+  if (cacheFeriados[ano]) return cacheFeriados[ano];
+  const p = pascoaIso(ano);
+  const f = {};
+  f[`${ano}-01-01`] = "Confraternização Universal";
+  f[somarDias(p, -48)] = "Carnaval";
+  f[somarDias(p, -47)] = "Carnaval";
+  f[somarDias(p, -2)] = "Sexta-feira Santa";
+  f[`${ano}-04-21`] = "Tiradentes";
+  f[`${ano}-05-01`] = "Dia do Trabalho";
+  f[somarDias(p, 60)] = "Corpus Christi";
+  f[`${ano}-09-07`] = "Independência do Brasil";
+  f[`${ano}-10-12`] = "Nossa Senhora Aparecida";
+  f[`${ano}-11-02`] = "Finados";
+  f[`${ano}-11-15`] = "Proclamação da República";
+  if (ano >= 2024) f[`${ano}-11-20`] = "Dia da Consciência Negra";
+  f[`${ano}-12-25`] = "Natal";
+  cacheFeriados[ano] = f;
+  return f;
+}
+
+// Dia sem aula: um feriado cadastrado ("Sem aula") ou nacional. Um dia cadastrado como "Com aula" cancela o feriado nacional.
+export function feriadoDoDia(iso, dados) {
+  if (!iso) return null;
+  const cadastrado = ((dados && dados.feriados) || []).find((x) => x.data === iso);
+  if (cadastrado) return String(cadastrado.aula || "").trim().toLowerCase() === "sim" ? null : { nome: cadastrado.nome, origem: "cadastrado" };
+  const nome = feriadosNacionais(Number(String(iso).slice(0, 4)))[iso];
+  return nome ? { nome, origem: "nacional" } : null;
+}
+
+// igual a feriadoDoDia, mas respeita o interruptor "Feriados" de Configurações
+export function feriadoDaData(dados, iso) {
+  return recursoLigado({ ...DEFAULT_CONFIG, ...((dados && dados.config) || {}) }, "recursoFeriados") ? feriadoDoDia(iso, dados) : null;
+}
+
+// próximos feriados nacionais a partir de uma data (para consulta em Configurações)
+export function proximosFeriadosNacionais(deIso, quantidade = 6) {
+  const ano = Number(deIso.slice(0, 4));
+  return [...Object.entries(feriadosNacionais(ano)), ...Object.entries(feriadosNacionais(ano + 1))]
+    .filter(([iso]) => iso >= deIso)
+    .sort(([a], [b]) => a.localeCompare(b))
+    .slice(0, quantidade)
+    .map(([iso, nome]) => ({ data: iso, nome }));
+}
+
+/* ---------- andamento do dia por horário ---------- */
+export function andamentoPorHorario(sessoes) {
+  const grupos = {};
+  sessoes.forEach((s) => {
+    const k = s.hora || "--:--";
+    if (!grupos[k]) grupos[k] = { hora: k, total: 0, marcadas: 0, presentes: 0, faltas: 0, sessoes: [] };
+    const g = grupos[k];
+    g.total += 1;
+    if (marcada(s.status)) g.marcadas += 1;
+    if (ehPresenca(s.status)) g.presentes += 1;
+    if (ehFalta(s.status)) g.faltas += 1;
+    g.sessoes.push(s);
+  });
+  return Object.values(grupos)
+    .map((g) => ({ ...g, sessoes: [...g.sessoes].sort((a, b) => a.aluno.localeCompare(b.aluno, "pt-BR")) }))
+    .sort((a, b) => horaParaMin(a.hora) - horaParaMin(b.hora));
 }

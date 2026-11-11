@@ -22,12 +22,29 @@ import SidenavCollapse from "examples/Sidenav/SidenavCollapse";
 // Custom styles for the Sidenav
 import SidenavRoot from "examples/Sidenav/SidenavRoot";
 import sidenavLogoLabel from "examples/Sidenav/styles/sidenav";
+import themeConfig from "themeConfig";
+
+const iconeMenu = themeConfig.sidenavIcon || {};
+const tituloMenu = themeConfig.sidenavTitle || {};
+
+// tamanho da letra do nome da escola para caber em uma linha ao lado do ícone (maiúsculas ocupam ~0,72em por letra)
+function ajustarNome(nome) {
+  const max = tituloMenu.maxFontSize || 14;
+  const min = tituloMenu.minFontSize || 9;
+  const area = tituloMenu.areaPx || 148;
+  const ls = tituloMenu.letterSpacing !== undefined ? tituloMenu.letterSpacing : 0.12;
+  const n = Math.max(String(nome || "").length, 1);
+  const ideal = Math.floor((area / (n * (0.72 + ls))) * 2) / 2;
+  const fontSize = Math.min(max, Math.max(min, ideal));
+  // se nem no tamanho mínimo cabe, o nome quebra em mais de uma linha (só nesse caso)
+  const cabe = n * min * (0.72 + ls) <= area;
+  return { fontSize, letterSpacing: Math.round(fontSize * ls * 10) / 10, cabe };
+}
 
 // Vision UI Dashboard React context
 import { useVisionUIController, setMiniSidenav, setTransparentSidenav } from "context";
 
 // Vision UI Dashboard React icons
-import SimmmpleLogo from "examples/Icons/SimmmpleLogo";
 
 // function Sidenav({ color, brand, brandName, routes, ...rest }) {
 function Sidenav({ color, brandName, routes, ...rest }) {
@@ -122,6 +139,8 @@ function Sidenav({ color, brandName, routes, ...rest }) {
     return returnValue;
   });
 
+  const nomeAjustado = ajustarNome(brandName);
+
   return (
     <SidenavRoot {...rest} variant="permanent" ownerState={{ transparentSidenav, miniSidenav }}>
       <VuiBox
@@ -166,14 +185,30 @@ function Sidenav({ color, brandName, routes, ...rest }) {
                 })
               }
             >
-              <SimmmpleLogo size="24px" />
+              {/* ícone do menu: arquivo e aparência em themeConfig.sidenavIcon */}
+              <img
+                src={`${process.env.PUBLIC_URL}/${iconeMenu.file || "favicon.png"}`}
+                alt=""
+                width={iconeMenu.size || 30}
+                height={iconeMenu.size || 30}
+                style={{
+                  width: iconeMenu.size || 30,
+                  height: iconeMenu.size || 30,
+                  boxSizing: "border-box",
+                  padding: iconeMenu.padding || 0,
+                  objectFit: "contain",
+                  display: "block",
+                  background: iconeMenu.background || "transparent",
+                  borderRadius: iconeMenu.radius || 0,
+                }}
+              />
             </VuiBox>
             <VuiTypography
               variant="button"
               textGradient={true}
               color="logo"
-              fontSize={14}
-              letterSpacing={2}
+              fontSize={nomeAjustado.fontSize}
+              letterSpacing={nomeAjustado.letterSpacing}
               fontWeight="medium"
               sx={
                 ((theme) => sidenavLogoLabel(theme, { miniSidenav, transparentSidenav }),
@@ -181,6 +216,16 @@ function Sidenav({ color, brandName, routes, ...rest }) {
                   opacity: miniSidenav || (miniSidenav && transparentSidenav) ? 0 : 1,
                   maxWidth: miniSidenav || (miniSidenav && transparentSidenav) ? 0 : "100%",
                   margin: "0 auto",
+                  fontSize: `${nomeAjustado.fontSize}px`,
+                  letterSpacing: `${nomeAjustado.letterSpacing}px`,
+                  // o texto com degradê é recortado pela própria caixa: folga à direita (espaçamento entre letras) e embaixo
+                  lineHeight: 1.4,
+                  paddingRight: "3px",
+                  paddingBottom: "2px",
+                  // uma linha só (não muda a altura do cabeçalho); só nomes enormes quebram, e apenas com o menu aberto
+                  whiteSpace: nomeAjustado.cabe || miniSidenav ? "nowrap" : "normal",
+                  minWidth: 0,
+                  textAlign: "left",
                 })
               }
             >

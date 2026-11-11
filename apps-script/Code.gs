@@ -17,34 +17,36 @@ const SCHEMA = {
   Modulos:    [['id','t'],['cursoId','t'],['ordem','n'],['nome','t'],['pontos','n'],['fase','t']],
   Matriculas: [['id','t'],['alunoId','t'],['cursoId','t'],['dia','t'],['inicio','h'],['duracao','n'],['modalidade','t'],['moduloAtual','n'],['dataInicio','d'],['status','t'],['obs','t']],
   Aulas:      [['id','t'],['data','d'],['matriculaId','t'],['status','t'],['tipo','t'],['hora','h'],['modalidade','t'],['modulo','n'],['reposicaoDe','t'],['obs','t'],['professorId','t']],
-  Progresso:  [['id','t'],['matriculaId','t'],['moduloId','t'],['concluidoEm','d'],['obs','t']],
+  Progresso:  [['id','t'],['matriculaId','t'],['moduloId','t'],['concluidoEm','d'],['obs','t'],['nota','n']],
   Pontos:     [['id','t'],['data','d'],['alunoId','t'],['tipo','t'],['pontos','n'],['descricao','t'],['moduloId','t'],['registradoPor','t']],
   Premios:    [['id','t'],['nome','t'],['custo','n'],['ativo','t']],
   Migracao:   [['id','t'],['matriculaId','t'],['presencas','n'],['faltas','n'],['reposicoesPendentes','n'],['obs','t']],
   Movimentacoes: [['id','t'],['data','d'],['alunoId','t'],['matriculaId','t'],['tipo','t'],['motivo','t'],['obs','t'],['registradoPor','t']],
   Avaliacoes: [['id','t'],['matriculaId','t'],['tipo','t'],['data','d'],['conceito','t'],['nota','n'],['comentario','t'],['professorId','t']],
+  Feriados:   [['id','t'],['data','d'],['nome','t'],['aula','t']],
   Usuarios:   [['email','t'],['nome','t'],['perfil','t'],['ativo','t']]
 };
-const CHAVE_DADOS = { Alunos: 'alunos', Professores: 'professores', Escala: 'escala', Cursos: 'cursos', Modulos: 'modulos', Matriculas: 'matriculas', Aulas: 'aulas', Progresso: 'progresso', Pontos: 'pontos', Premios: 'premios', Migracao: 'migracao', Movimentacoes: 'movimentacoes', Avaliacoes: 'avaliacoes' };
-const PREFIXO = { Alunos: 'A', Professores: 'PRF', Escala: 'ESC', Cursos: 'C', Modulos: 'MOD', Matriculas: 'MAT', Aulas: 'AUL', Progresso: 'PRG', Pontos: 'P', Premios: 'PR', Migracao: 'MIG', Movimentacoes: 'MOV', Avaliacoes: 'AVA' };
+const CHAVE_DADOS = { Alunos: 'alunos', Professores: 'professores', Escala: 'escala', Cursos: 'cursos', Modulos: 'modulos', Matriculas: 'matriculas', Aulas: 'aulas', Progresso: 'progresso', Pontos: 'pontos', Premios: 'premios', Migracao: 'migracao', Movimentacoes: 'movimentacoes', Avaliacoes: 'avaliacoes', Feriados: 'feriados' };
+const PREFIXO = { Alunos: 'A', Professores: 'PRF', Escala: 'ESC', Cursos: 'C', Modulos: 'MOD', Matriculas: 'MAT', Aulas: 'AUL', Progresso: 'PRG', Pontos: 'P', Premios: 'PR', Migracao: 'MIG', Movimentacoes: 'MOV', Avaliacoes: 'AVA', Feriados: 'FER' };
 const QUEM_GRAVA = {
-  Aulas: ['Admin', 'Professor'], Pontos: ['Admin', 'Professor'], Migracao: ['Admin', 'Professor'], Avaliacoes: ['Admin', 'Professor'], Movimentacoes: ['Admin'],
+  Aulas: ['Admin', 'Professor'], Pontos: ['Admin', 'Professor'], Migracao: ['Admin', 'Professor'], Avaliacoes: ['Admin', 'Professor'], Movimentacoes: ['Admin'], Feriados: ['Admin'],
   Alunos: ['Admin'], Cursos: ['Admin'], Modulos: ['Admin'], Matriculas: ['Admin'], Progresso: ['Admin'], Premios: ['Admin'],
   Professores: ['Admin'], Escala: ['Admin']
 };
 // Abas criadas pela função prepararNovidades; se ainda não existirem, o sistema segue funcionando sem elas
-const OPCIONAIS = ['Professores', 'Escala', 'Migracao', 'Movimentacoes', 'Avaliacoes'];
+const OPCIONAIS = ['Professores', 'Escala', 'Migracao', 'Movimentacoes', 'Avaliacoes', 'Feriados'];
 const OBRIGATORIOS = {
   Alunos: ['nome'], Cursos: ['nome'], Modulos: ['cursoId', 'ordem', 'nome'],
   Matriculas: ['alunoId', 'cursoId', 'dia', 'inicio', 'modalidade', 'status'],
   Aulas: ['data', 'matriculaId', 'tipo'], Progresso: ['matriculaId', 'moduloId', 'concluidoEm'],
   Pontos: ['data', 'alunoId', 'tipo', 'pontos'], Premios: ['nome', 'custo'],
   Professores: ['nome'], Escala: ['professorId', 'dia', 'inicio', 'fim'], Migracao: ['matriculaId'],
-  Movimentacoes: ['data', 'alunoId', 'tipo'], Avaliacoes: ['matriculaId', 'tipo', 'data', 'conceito']
+  Movimentacoes: ['data', 'alunoId', 'tipo'], Avaliacoes: ['matriculaId', 'tipo', 'data', 'conceito'], Feriados: ['data', 'nome']
 };
 const VALORES = {
   'Aulas.tipo': ['Regular', 'Reposição', 'Avulsa', 'Experimental'],
-  'Aulas.status': ['', 'Presente', 'Falta', 'Reposição agendada', 'Reposição realizada'],
+  'Aulas.status': ['', 'Presente', 'Falta', 'Reposição agendada', 'Reposição realizada', 'Cancelada'],
+  'Feriados.aula': ['', 'Sim', 'Não'],
   'Aulas.modalidade': ['', 'Presencial', 'Online'],
   'Matriculas.status': ['Ativa', 'Concluída', 'Trancada', 'Saiu', 'Experimental'],
   'Movimentacoes.tipo': ['Entrada', 'Saída', 'Trancamento', 'Retorno', 'Conclusão', 'Troca de horário'],
@@ -68,7 +70,7 @@ const CONFIG_CHAVES = {
   'Grade: hora inicial': 'gradeInicio', 'Grade: hora final': 'gradeFim', 'Cor: aulas online': 'corOnline',
   'Cor: reposições': 'corReposicao', 'Cor: aula experimental': 'corExperimental',
   'Alerta de evasão: faltas seguidas': 'riscoFaltasSeguidas', 'Alerta de evasão: reposições pendentes': 'riscoReposicoes',
-  'Recurso: avaliações': 'recursoAvaliacoes', 'Recurso: alertas de evasão': 'recursoAlertas',
+  'Recurso: feriados': 'recursoFeriados', 'Recurso: saldo do sistema anterior': 'recursoMigracao', 'Recurso: avaliações': 'recursoAvaliacoes', 'Recurso: alertas de evasão': 'recursoAlertas',
   'Recurso: pontos e recompensas': 'recursoPontos', 'Recurso: professores e escala': 'recursoProfessores', 'Recurso: aulas experimentais': 'recursoExperimentais'
 };
 // Funcionalidades ligáveis/desligáveis (valor Sim/Não na aba Config; sem a linha, a funcionalidade fica ligada)
@@ -149,6 +151,9 @@ function executar(req, u) {
     case 'avaliacaoFinal':
       exigir(u, ['Admin', 'Professor']);
       return avaliacaoFinal(req, u);
+    case 'notaModulo':
+      exigir(u, ['Admin', 'Professor']);
+      return notaModulo(req, u);
     case 'salvarConfig':
       exigir(u, ['Admin']);
       return salvarConfig(req.config || {});
@@ -304,11 +309,13 @@ function garantirColuna(aba, indice, prefixo, titulo, largura) {
 function garantirColunasNovas() {
   garantirColuna('Aulas', 11, 'ProfessorID', 'ProfessorID (aula experimental)', 180);
   garantirColuna('Modulos', 6, 'Fase', 'Fase (opcional)', 130);
+  garantirColuna('Progresso', 6, 'Nota', 'Nota do módulo (0 a 10)', 150);
 }
 
 function lerTabela(nome) {
   if (nome === 'Aulas') garantirColuna('Aulas', 11, 'ProfessorID', 'ProfessorID (aula experimental)', 180);
   if (nome === 'Modulos') garantirColuna('Modulos', 6, 'Fase', 'Fase (opcional)', 130);
+  if (nome === 'Progresso') garantirColuna('Progresso', 6, 'Nota', 'Nota do módulo (0 a 10)', 150);
   const campos = SCHEMA[nome];
   const n = campos.length;
   let sh = planilha().getSheetByName(nome);
@@ -385,6 +392,10 @@ const ABAS_AUTO = {
   Avaliacoes: {
     titulos: ['ID', 'MatriculaID', 'Tipo', 'Data', 'Conceito', 'Nota', 'Comentário', 'ProfessorID'],
     larguras: [90, 110, 70, 90, 130, 60, 320, 110]
+  },
+  Feriados: {
+    titulos: ['ID', 'Data', 'Nome do feriado ou dia sem aula', 'Tem aula? (Sim/Não)'],
+    larguras: [90, 100, 320, 150]
   }
 };
 function criarAba(nome) {
@@ -473,7 +484,7 @@ function salvarConfig(cfg) {
     gradeInicio: function (v) { v = Number(v); if (!isFinite(v) || v < 0 || v > 23) throw falha('ERRO', 'Hora inicial inválida.'); return v; },
     gradeFim: function (v) { v = Number(v); if (!isFinite(v) || v < 1 || v > 24) throw falha('ERRO', 'Hora final inválida.'); return v; },
     corOnline: corValida, corReposicao: corValida, corExperimental: corValida,
-    recursoPontos: boolSim, recursoProfessores: boolSim, recursoExperimentais: boolSim, recursoAvaliacoes: boolSim, recursoAlertas: boolSim,
+    recursoPontos: boolSim, recursoProfessores: boolSim, recursoExperimentais: boolSim, recursoAvaliacoes: boolSim, recursoAlertas: boolSim, recursoMigracao: boolSim, recursoFeriados: boolSim,
     riscoFaltasSeguidas: inteiroMin1, riscoReposicoes: inteiroMin1
   };
   function inteiroMin1(v) { v = Number(v); if (!isFinite(v) || v < 1 || Math.floor(v) !== v) throw falha('ERRO', 'Os limites do alerta devem ser números inteiros, 1 ou mais.'); return v; }
@@ -501,6 +512,33 @@ function carregar(u) {
 
 /* ---------- ações compostas ---------- */
 
+// Nota de 0 a 10 (vazia = sem nota). Aceita vírgula.
+function lerNota(v) {
+  if (v === '' || v === null || v === undefined) return '';
+  const n = Number(String(v).replace(',', '.'));
+  if (!isFinite(n) || n < 0 || n > 10) throw falha('VALIDACAO', 'A nota deve estar entre 0 e 10.');
+  return Math.round(n * 10) / 10;
+}
+
+// Nota de um módulo já concluído (cria o registro de progresso se o módulo foi concluído antes do sistema novo)
+function notaModulo(req, u) {
+  const mat = lerTabela('Matriculas').registros.find(function (r) { return r.id === req.matriculaId; });
+  if (!mat) throw falha('ERRO', 'Matrícula não encontrada.');
+  const modulo = lerTabela('Modulos').registros.find(function (m) { return m.id === req.moduloId && m.cursoId === mat.cursoId; });
+  if (!modulo) throw falha('ERRO', 'Módulo não encontrado neste curso.');
+  const nota = lerNota(req.nota);
+  const existente = lerTabela('Progresso').registros.find(function (p) { return p.matriculaId === mat.id && p.moduloId === modulo.id; });
+  let data = existente ? existente.concluidoEm : '';
+  if (!existente) {
+    const concluido = mat.status === 'Concluída' || Number(modulo.ordem) < Number(mat.moduloAtual);
+    if (!concluido) throw falha('VALIDACAO', 'Só dá para dar nota a módulos já concluídos.');
+    data = req.data || hojeIso();
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(data)) throw falha('VALIDACAO', 'Data inválida.');
+  }
+  const reg = salvarRegistro('Progresso', { id: existente ? existente.id : undefined, matriculaId: mat.id, moduloId: modulo.id, concluidoEm: data, obs: existente ? existente.obs : '', nota: nota }, u);
+  return { ok: true, mudancas: { progresso: [reg] } };
+}
+
 // Pontos ao concluir o módulo = pontos do módulo (ou o padrão da Config) + bônus de bom comportamento
 const BONUS_BOM_COMPORTAMENTO = 10;
 
@@ -508,6 +546,7 @@ function concluirModulo(req, u) {
   const matriculaId = req.matriculaId;
   const bom = req.bomComportamento === true || String(req.bomComportamento) === 'true';
   const obsModulo = String(req.obs || '').slice(0, 300);
+  const notaDoModulo = lerNota(req.nota);
   const TM = lerTabela('Matriculas');
   const mat = TM.registros.find(function (r) { return r.id === matriculaId; });
   if (!mat) throw falha('ERRO', 'Matrícula não encontrada.');
@@ -525,7 +564,7 @@ function concluirModulo(req, u) {
   const cfg = lerConfig();
   const hoje = hojeIso();
 
-  const progresso = salvarRegistro('Progresso', { matriculaId: mat.id, moduloId: atual.id, concluidoEm: hoje, obs: obsModulo }, u);
+  const progresso = salvarRegistro('Progresso', { matriculaId: mat.id, moduloId: atual.id, concluidoEm: hoje, obs: obsModulo, nota: notaDoModulo }, u);
   const base = atual.pontos !== null && atual.pontos !== '' ? Number(atual.pontos) : Number(cfg.pontosPadrao || 10);
   const pts = base + (bom ? BONUS_BOM_COMPORTAMENTO : 0);
   let pontos = null;

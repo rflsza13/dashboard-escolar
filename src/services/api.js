@@ -30,12 +30,13 @@ const remoto = {
   salvarConfig: (t, config) => chamar(t, { action: "salvarConfig", config }),
   movimentar: (t, form) => chamar(t, { action: "movimentar", ...form }),
   avaliacaoFinal: (t, form) => chamar(t, { action: "avaliacaoFinal", ...form }),
+  notaModulo: (t, form) => chamar(t, { action: "notaModulo", ...form }),
 };
 
 /* ---------------- modo demonstração (localStorage) ---------------- */
 const KEY = "escola-demo-v2";
-const CHAVE = { Alunos: "alunos", Professores: "professores", Escala: "escala", Cursos: "cursos", Modulos: "modulos", Matriculas: "matriculas", Aulas: "aulas", Progresso: "progresso", Pontos: "pontos", Premios: "premios", Migracao: "migracao", Movimentacoes: "movimentacoes", Avaliacoes: "avaliacoes" };
-const PREF = { Alunos: "A", Professores: "PRF", Escala: "ESC", Cursos: "C", Modulos: "MOD", Matriculas: "MAT", Aulas: "AUL", Progresso: "PRG", Pontos: "P", Premios: "PR", Migracao: "MIG", Movimentacoes: "MOV", Avaliacoes: "AVA" };
+const CHAVE = { Alunos: "alunos", Professores: "professores", Escala: "escala", Cursos: "cursos", Modulos: "modulos", Matriculas: "matriculas", Aulas: "aulas", Progresso: "progresso", Pontos: "pontos", Premios: "premios", Migracao: "migracao", Movimentacoes: "movimentacoes", Avaliacoes: "avaliacoes", Feriados: "feriados" };
+const PREF = { Alunos: "A", Professores: "PRF", Escala: "ESC", Cursos: "C", Modulos: "MOD", Matriculas: "MAT", Aulas: "AUL", Progresso: "PRG", Pontos: "P", Premios: "PR", Migracao: "MIG", Movimentacoes: "MOV", Avaliacoes: "AVA", Feriados: "FER" };
 
 function semear() {
   let s = 20261028;
@@ -129,7 +130,7 @@ function semear() {
   ];
   const escala = faixas.map((f, i) => ({ id: `ESC${String(i + 1).padStart(3, "0")}`, professorId: f[0], dia: f[1], inicio: f[2], fim: f[3], cursoId: f[4], obs: "" }));
   return {
-    dados: { alunos, professores, escala, cursos, modulos, matriculas, aulas, progresso, pontos, premios, migracao: [], movimentacoes: [], avaliacoes: [] },
+    dados: { alunos, professores, escala, cursos, modulos, matriculas, aulas, progresso, pontos, premios, migracao: [], movimentacoes: [], avaliacoes: [], feriados: [] },
     config: { ...DEFAULT_CONFIG, nomeEscola: "Escola Exemplo", gradeInicio: 8, gradeFim: 20 },
   };
 }
@@ -212,7 +213,9 @@ const demo = {
     const curso = d.cursos.find((c) => c.id === mat.cursoId);
     const hoje = hojeIso();
     const obsTexto = (opts && opts.obs) || "";
-    const progresso = upsert(db, "Progresso", { matriculaId: mat.id, moduloId: atual.id, concluidoEm: hoje, obs: obsTexto });
+    const notaMod = opts && opts.nota !== undefined && opts.nota !== "" && opts.nota !== null ? Number(String(opts.nota).replace(",", ".")) : "";
+    if (notaMod !== "" && (!Number.isFinite(notaMod) || notaMod < 0 || notaMod > 10)) throw erro("A nota deve estar entre 0 e 10.");
+    const progresso = upsert(db, "Progresso", { matriculaId: mat.id, moduloId: atual.id, concluidoEm: hoje, obs: obsTexto, nota: notaMod });
     const base = Number(atual.pontos !== null && atual.pontos !== "" && atual.pontos !== undefined ? atual.pontos : (db.config.pontosPadrao || 10));
     const pts = base + (opts && opts.bomComportamento ? BONUS_BOM_COMPORTAMENTO : 0);
     let pontos = null;
@@ -258,6 +261,21 @@ const demo = {
     });
     gravar(db);
     return { ok: true, mudancas: { matriculas, movimentacoes, alunos } };
+  },
+  notaModulo: async (t, f) => {
+    const db = ler();
+    const mat = db.dados.matriculas.find((m) => m.id === f.matriculaId);
+    if (!mat) throw erro("Matrícula não encontrada.");
+    const modulo = db.dados.modulos.find((m) => m.id === f.moduloId && m.cursoId === mat.cursoId);
+    if (!modulo) throw erro("Módulo não encontrado neste curso.");
+    const nota = f.nota === "" || f.nota === null || f.nota === undefined ? "" : Number(String(f.nota).replace(",", "."));
+    if (nota !== "" && (!Number.isFinite(nota) || nota < 0 || nota > 10)) throw erro("A nota deve estar entre 0 e 10.");
+    if (!db.dados.progresso) db.dados.progresso = [];
+    const existente = db.dados.progresso.find((p) => p.matriculaId === mat.id && p.moduloId === modulo.id);
+    if (!existente && !(mat.status === "Concluída" || Number(modulo.ordem) < Number(mat.moduloAtual))) throw erro("Só dá para dar nota a módulos já concluídos.");
+    const reg = upsert(db, "Progresso", { id: existente ? existente.id : undefined, matriculaId: mat.id, moduloId: modulo.id, concluidoEm: existente ? existente.concluidoEm : f.data || hojeIso(), obs: existente ? existente.obs : "", nota });
+    gravar(db);
+    return { ok: true, mudancas: { progresso: [reg] } };
   },
   avaliacaoFinal: async (t, f) => {
     const db = ler();

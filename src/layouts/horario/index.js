@@ -11,7 +11,7 @@ import DashboardLayout from "examples/LayoutContainers/DashboardLayout";
 import { IoChevronBack, IoChevronForward, IoAdd } from "react-icons/io5";
 
 import { useEscola } from "context/escola";
-import { CAT_INGLES, CAT_PROGRAMACAO, DEFAULT_CONFIG, DIAS_GRADE, ROTULO_CATEGORIA, formatarData, hojeIso, legendaDeCursos, montarSessoes, segundaDaSemana, somarDias } from "utils/escola";
+import { CAT_INGLES, CAT_PROGRAMACAO, DEFAULT_CONFIG, DIAS_GRADE, ROTULO_CATEGORIA, formatarData, hojeIso, feriadoDaData, fimDaAula, legendaDeCursos, montarSessoes, segundaDaSemana, somarDias } from "utils/escola";
 
 import BarraStatus from "layouts/shared/BarraStatus";
 import AulaDialog from "layouts/shared/AulaDialog";
@@ -32,7 +32,7 @@ function Legenda({ cor, texto }) {
 const OPCOES_CURSO = [CAT_PROGRAMACAO, CAT_INGLES];
 
 function Horario() {
-  const { dados, pode } = useEscola();
+  const { dados, pode, excluir } = useEscola();
   const cfg = { ...DEFAULT_CONFIG, ...dados.config };
   const [segunda, setSegunda] = useState(segundaDaSemana(hojeIso()));
   const [cursoFiltro, setCursoFiltro] = useState(CAT_PROGRAMACAO);
@@ -41,9 +41,10 @@ function Horario() {
 
   const dias = useMemo(() => DIAS_GRADE.map((_, i) => somarDias(segunda, i)), [segunda]);
 
-  const sessoes = useMemo(() => {
-    return montarSessoes(dados, dias[0], dias[5]).filter((s) => s.categoria === cursoFiltro);
-  }, [dados, dias, cursoFiltro]);
+  const todas = useMemo(() => montarSessoes(dados, dias[0], dias[5], { comCanceladas: true }).filter((s) => s.categoria === cursoFiltro), [dados, dias, cursoFiltro]);
+  const sessoes = useMemo(() => todas.filter((s) => !s.cancelada), [todas]);
+  const canceladas = useMemo(() => todas.filter((s) => s.cancelada), [todas]);
+  const feriadosSemana = useMemo(() => dias.map((d) => feriadoDaData(dados, d)), [dados, dias]);
 
   const legenda = useMemo(() => legendaDeCursos(dados.cursos), [dados.cursos]);
   const semanaAtual = segunda === segundaDaSemana(hojeIso());
@@ -117,13 +118,36 @@ function Horario() {
               <Legenda key={l.chave} cor={l.cor} texto={l.rotulo} />
             ))}
           </VuiBox>
-          <GradeSemanal dias={dias} sessoes={sessoes} onSelecionar={setAula} />
+          <GradeSemanal dias={dias} sessoes={sessoes} feriados={feriadosSemana} onSelecionar={setAula} />
           {sessoes.length === 0 && (
             <VuiTypography variant="button" color="text" fontWeight="regular" mt={2} sx={{ display: "block" }}>
               Nenhuma aula encontrada para o filtro selecionado nesta semana.
             </VuiTypography>
           )}
         </Card>
+
+        {canceladas.length > 0 && (
+          <Card sx={{ mt: 3 }}>
+            <VuiTypography variant="lg" color="white" fontWeight="bold" mb="4px">
+              Aulas canceladas nesta semana
+            </VuiTypography>
+            <VuiTypography variant="caption" color="text" mb="14px" sx={{ display: "block" }}>
+              Elas não aparecem na grade nem contam como falta. Use Restaurar para devolver a aula à grade.
+            </VuiTypography>
+            {canceladas.map((s) => (
+              <VuiBox key={s.chave} display="flex" alignItems="center" justifyContent="space-between" gap="12px" sx={{ p: "8px 10px", mb: "6px", borderRadius: "10px", background: "rgba(255,255,255,0.04)" }}>
+                <VuiTypography variant="button" color="white" fontWeight="regular">
+                  {formatarData(s.data)} · {s.hora}–{fimDaAula(s.hora, s.duracao)} · {s.aluno} — {s.curso}
+                </VuiTypography>
+                {pode.professor && (
+                  <VuiButton size="small" color="info" variant="outlined" onClick={() => s.aulaId && excluir("Aulas", s.aulaId)}>
+                    Restaurar
+                  </VuiButton>
+                )}
+              </VuiBox>
+            ))}
+          </Card>
+        )}
       </VuiBox>
       <AulaDialog sessao={aula} onClose={() => setAula(null)} />
       <NovaAulaDialog open={nova} dataInicial={dias.includes(hojeIso()) ? hojeIso() : dias[0]} onClose={() => setNova(false)} />

@@ -14,12 +14,12 @@ import VuiInput from "components/VuiInput";
 import VuiButton from "components/VuiButton";
 
 import { useEscola } from "context/escola";
-import { BONUS_BOM_COMPORTAMENTO, DIAS_LONGOS, descricaoModulo, fimDaAula, formatarData, siglaDia, somarDias, dataDeIso } from "utils/escola";
+import { BONUS_BOM_COMPORTAMENTO, DIAS_LONGOS, descricaoModulo, lerNota, fimDaAula, formatarData, siglaDia, somarDias, dataDeIso } from "utils/escola";
 import { FieldLabel, NativeSelect, dialogPaper } from "layouts/shared/fields";
 import StatusChip from "layouts/shared/StatusChip";
 
 function AulaDialog({ sessao, onClose }) {
-  const { dados, pode, marcarSessao, agendarReposicao, concluirModulo, salvar, recursos } = useEscola();
+  const { dados, pode, marcarSessao, agendarReposicao, concluirModulo, salvar, excluir, recursos } = useEscola();
   const history = useHistory();
   const [modoRep, setModoRep] = useState(false);
   const [rep, setRep] = useState({ data: "", hora: "", modalidade: "Presencial" });
@@ -29,6 +29,8 @@ function AulaDialog({ sessao, onClose }) {
   // Estados para conclusão de módulo
   const [bomComportamento, setBomComportamento] = useState(false);
   const [obsModulo, setObsModulo] = useState("");
+  const [notaModulo, setNotaModulo] = useState("");
+  const [erroNota, setErroNota] = useState("");
 
   useEffect(() => {
     if (!sessao) return;
@@ -36,6 +38,8 @@ function AulaDialog({ sessao, onClose }) {
     setErro("");
     setBomComportamento(false);
     setObsModulo("");
+    setNotaModulo("");
+    setErroNota("");
     setRep({ data: somarDias(sessao.data, 7), hora: sessao.hora, modalidade: sessao.modalidade });
   }, [sessao]);
 
@@ -94,7 +98,31 @@ function AulaDialog({ sessao, onClose }) {
     return agendarReposicao(sessao, rep);
   };
 
+  // aula regular: some da grade só neste dia (status "Cancelada", dá para restaurar); as demais são apagadas
+  const cancelarAula = async () => {
+    const existente = sessao.aulaId ? dados.aulas.find((a) => a.id === sessao.aulaId) : null;
+    const temReposicao = existente && dados.aulas.some((a) => a.reposicaoDe === existente.id);
+    const aviso = `${existente && existente.status ? " A marcação de presença/falta deste dia é descartada." : ""}${temReposicao ? " A reposição já agendada continua na grade." : ""}`;
+    if (!window.confirm(`Cancelar a aula de ${sessao.aluno} em ${formatarData(sessao.data)}? Ela some da grade só neste dia e não conta como falta.${aviso} Dá para restaurar depois.`)) return;
+    const ok = existente
+      ? await salvar("Aulas", { ...existente, status: "Cancelada" })
+      : await salvar("Aulas", { data: sessao.data, matriculaId: sessao.matriculaId, status: "Cancelada", tipo: "Regular", hora: "", modalidade: "", modulo: matricula ? matricula.moduloAtual : "", reposicaoDe: "", obs: "" });
+    if (ok) onClose();
+  };
+
+  const apagarAula = async () => {
+    const extra = sessao.tipo === "Experimental" ? " O cadastro do visitante continua em Alunos." : sessao.tipo === "Reposição" ? " A falta de origem volta a ficar sem reposição." : "";
+    if (!window.confirm(`Apagar esta aula (${String(sessao.tipo).toLowerCase()}) de ${sessao.aluno} em ${formatarData(sessao.data)}? Ela é removida da grade.${extra}`)) return;
+    if (await excluir("Aulas", sessao.aulaId)) onClose();
+  };
+
   const concluir = async () => {
+    const nota = lerNota(notaModulo);
+    if (recursos.avaliacoes && nota === null) {
+      setErroNota("A nota do módulo deve estar entre 0 e 10.");
+      return;
+    }
+    setErroNota("");
     const pts = pontosBase + (bomComportamento ? BONUS_BOM_COMPORTAMENTO : 0);
     if (
       !window.confirm(
@@ -104,7 +132,7 @@ function AulaDialog({ sessao, onClose }) {
       return;
     }
     setOcupado(true);
-    const r = await concluirModulo(sessao.matriculaId, { bomComportamento, obs: obsModulo });
+    const r = await concluirModulo(sessao.matriculaId, { bomComportamento, obs: obsModulo, nota: recursos.avaliacoes ? nota : "" });
     setOcupado(false);
     if (r.ok) onClose();
   };
@@ -178,6 +206,17 @@ function AulaDialog({ sessao, onClose }) {
                 Limpar marcação
               </VuiButton>
             )}
+            {sessao.tipo === "Regular" ? (
+              <VuiButton size="small" color="error" variant="outlined" onClick={cancelarAula}>
+                Cancelar esta aula
+              </VuiButton>
+            ) : (
+              sessao.aulaId && (
+                <VuiButton size="small" color="error" variant="outlined" onClick={apagarAula}>
+                  Apagar aula
+                </VuiButton>
+              )
+            )}
           </VuiBox>
         )}
 
@@ -241,6 +280,18 @@ function AulaDialog({ sessao, onClose }) {
                 }
               />
             </VuiBox>
+            )}
+
+            {recursos.avaliacoes && (
+              <VuiBox mb={1.5}>
+                <FieldLabel>Nota do módulo (0 a 10, opcional)</FieldLabel>
+                <VuiInput fullWidth value={notaModulo} onChange={(e) => setNotaModulo(e.target.value)} inputProps={{ inputMode: "decimal" }} />
+                {erroNota && (
+                  <VuiTypography variant="caption" color="error" sx={{ display: "block", mt: "4px" }}>
+                    {erroNota}
+                  </VuiTypography>
+                )}
+              </VuiBox>
             )}
 
             <VuiBox mb={2}>

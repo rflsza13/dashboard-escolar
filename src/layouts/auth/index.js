@@ -9,6 +9,10 @@ import { CLIENT_ID } from "services/api";
 import { useEscola } from "context/escola";
 
 const L = themeConfig.login || {};
+const LOGO = L.logo || {};
+
+// endereço completo, data: ou caminho absoluto ficam como estão; nome de arquivo vem da pasta public
+const resolverImagem = (v) => (/^(https?:|data:|\/|blob:)/i.test(v) ? v : `${process.env.PUBLIC_URL}/${v}`);
 
 function Login() {
   const { fase, erro, entrar, sair } = useEscola();
@@ -34,7 +38,7 @@ function Login() {
   }, [entrar, negado]);
 
   const fundoImagem = L.imageUrl
-    ? `${L.imageOverlay || "none"}, url("${L.imageUrl}") center / cover no-repeat`
+    ? `${L.imageOverlay || "none"}, url("${resolverImagem(L.imageUrl)}") ${L.imagePosition || "center"} / ${L.imageSize || "cover"} no-repeat ${L.imageColor || "#0b0b0b"}`
     : L.fallbackBackground || "#0b0b0b";
 
   return (
@@ -67,6 +71,25 @@ function Login() {
             boxShadow: "0 20px 60px rgba(0, 0, 0, 0.45)",
           }}
         >
+          {LOGO.file && Number(LOGO.size) > 0 && (
+            <img
+              src={resolverImagem(LOGO.file)}
+              alt=""
+              width={Number(LOGO.size)}
+              height={Number(LOGO.size)}
+              style={{
+                width: Number(LOGO.size),
+                height: Number(LOGO.size),
+                boxSizing: "border-box",
+                padding: LOGO.padding || 0,
+                objectFit: "contain",
+                display: "block",
+                margin: "0 auto 20px",
+                background: LOGO.background || "transparent",
+                borderRadius: LOGO.radius || 0,
+              }}
+            />
+          )}
           <VuiTypography variant="h3" color="white" fontWeight="bold" mb={1.5}>
             {L.title || "Bem-vindo(a)!"}
           </VuiTypography>

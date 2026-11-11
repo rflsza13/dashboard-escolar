@@ -116,6 +116,7 @@ function Bloco({ item }) {
   );
 }
 
+// Só aparece quando o interruptor "Saldo do sistema anterior" está ligado em Configurações
 function SaldoAnterior({ matriculas }) {
   if (!matriculas.length) return null;
   return (
@@ -125,7 +126,7 @@ function SaldoAnterior({ matriculas }) {
       </VuiTypography>
       <VuiTypography variant="caption" color="text" mb="16px" sx={{ display: "block" }}>
         Para alunos que vieram do sistema antigo: lance aqui o que eles já tinham. Os valores são somados às presenças e faltas registradas no sistema novo,
-        e as reposições pendentes entram na conta de reposições do aluno. Use − e + ou digite o número.
+        e as reposições pendentes entram na conta de reposições do aluno. Use − e + ou digite o número. Quando terminar, desligue este bloco em Configurações.
       </VuiTypography>
       {matriculas.map((item) => (
         <Bloco key={item.matricula.id} item={item} />

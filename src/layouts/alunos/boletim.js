@@ -5,7 +5,7 @@ import PageLayout from "examples/LayoutContainers/PageLayout";
 
 import { useEscola } from "context/escola";
 import themeConfig from "themeConfig";
-import { DIAS_LONGOS, descricaoModulo, faseDoModulo, formatarData, hojeIso, indexarAulas, resumoAluno, rotuloSituacao } from "utils/escola";
+import { DIAS_LONGOS, descricaoModulo, faseDoModulo, formatarData, formatarNota, hojeIso, indexarAulas, resumoAluno, rotuloSituacao } from "utils/escola";
 
 // Estilos de impressão: a folha vira a página inteira e os botões somem
 const CSS_IMPRESSAO = `
@@ -112,6 +112,7 @@ function Boletim() {
                 <Info rotulo="Modalidade" valor={m.modalidade} />
                 {m.dataInicio && <Info rotulo="Início" valor={formatarData(m.dataInicio)} />}
                 <Info rotulo="Andamento" valor={`${progresso.concluidos} de ${progresso.total} módulos (${Math.round(progresso.pct * 100)}%)`} />
+                {recursos.avaliacoes && progresso.media !== null && <Info rotulo="Média dos módulos" valor={formatarNota(progresso.media)} />}
               </div>
               {m.status === "Ativa" && progresso.atual && (
                 <div style={{ fontSize: 14, marginBottom: 8 }}>
@@ -126,6 +127,7 @@ function Boletim() {
                       {progresso.itens.some((i) => faseDoModulo(i.modulo)) && <th style={{ padding: "6px 8px" }}>Fase</th>}
                       <th style={{ padding: "6px 8px" }}>Situação</th>
                       <th style={{ padding: "6px 8px" }}>Concluído em</th>
+                      {recursos.avaliacoes && <th style={{ padding: "6px 8px", textAlign: "right" }}>Nota</th>}
                     </tr>
                   </thead>
                   <tbody>
@@ -137,6 +139,7 @@ function Boletim() {
                         {progresso.itens.some((x) => faseDoModulo(x.modulo)) && <td style={{ padding: "5px 8px" }}>{faseDoModulo(i.modulo) || "—"}</td>}
                         <td style={{ padding: "5px 8px" }}>{i.estado === "concluido" ? "Concluído" : i.estado === "atual" ? "Em andamento" : "A cursar"}</td>
                         <td style={{ padding: "5px 8px" }}>{i.data ? formatarData(i.data) : "—"}</td>
+                        {recursos.avaliacoes && <td style={{ padding: "5px 8px", textAlign: "right", fontWeight: 700 }}>{formatarNota(i.nota)}</td>}
                       </tr>
                     ))}
                   </tbody>

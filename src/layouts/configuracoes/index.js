@@ -17,6 +17,7 @@ import { useEscola } from "context/escola";
 import { DEFAULT_CONFIG, RECURSOS, TIPOS_CURSO, cursosComCor, recursoLigado, tipoDoCurso } from "utils/escola";
 
 import BarraStatus from "layouts/shared/BarraStatus";
+import Feriados from "layouts/configuracoes/Feriados";
 import { FieldLabel } from "layouts/shared/fields";
 
 const COR = /^#[0-9a-fA-F]{6}$/;
@@ -53,7 +54,7 @@ const coresDosTipos = (cursos) => {
 };
 
 function Configuracoes() {
-  const { dados, pode, salvarConfig, salvar: salvarRegistro } = useEscola();
+  const { dados, pode, salvarConfig, salvar: salvarRegistro, recursos } = useEscola();
   const [coresTipo, setCoresTipo] = useState(() => coresDosTipos(dados.cursos));
   const [recs, setRecs] = useState(() => recursosDe(dados.config));
   const [v, setV] = useState(() => paraTexto({ ...DEFAULT_CONFIG, ...dados.config }));
@@ -259,6 +260,12 @@ function Configuracoes() {
             </Grid>
           )}
         </Grid>
+
+        {recursos.feriados && (
+          <VuiBox mt={3}>
+            <Feriados />
+          </VuiBox>
+        )}
       </VuiBox>
     </DashboardLayout>
   );
