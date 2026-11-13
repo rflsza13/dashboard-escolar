@@ -44,9 +44,9 @@ export default function App() {
   const { miniSidenav, layout, sidenavColor } = controller;
   const [onMouseEnter, setOnMouseEnter] = useState(false);
   const { pathname } = useLocation();
-  const { fase, erro, dados, recarregar, recursos } = useEscola();
+  const { fase, erro, dados, recarregar, recursos, pode } = useEscola();
   // rotas de funcionalidades desligadas em Configurações somem do menu e deixam de abrir (voltam ao dashboard)
-  const rotasAtivas = routes.filter((r) => !r.recurso || recursos[r.recurso]);
+  const rotasAtivas = routes.filter((r) => (!r.recurso || recursos[r.recurso]) && (!r.soAdmin || pode.config));
 
   const handleOnMouseEnter = () => {
     if (miniSidenav && !onMouseEnter) {

@@ -26,15 +26,15 @@ const themeConfig = {
   // O painel usa a cor de cards.background.
   login: {
     // imageUrl aceita um endereço (https://...) ou o nome de um arquivo da pasta public (ex.: "login.jpg")
-    imageUrl: "android-chrome-512x512.png",
+    imageUrl: "",
     // tamanho e posição da imagem de fundo: imageSize aceita "cover" (preenche, pode cortar), "contain" (inteira, pode sobrar borda),
     // "auto" (tamanho original), porcentagem ("80%") ou pixels ("600px"); imageColor é a cor que aparece onde a imagem não alcança
-    imageSize: "50%",
+    imageSize: "cover",
     imagePosition: "center",
     imageColor: "#0b0b0b",
     // logo no painel de login: arquivo da pasta public e tamanho em pixels (size 0 esconde)
     logo: {
-      file: "",
+      file: "favicon.png",
       size: 72,
       background: "transparent",
       padding: 0,

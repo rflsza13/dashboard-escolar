@@ -1,6 +1,5 @@
 import { useEffect, useState } from "react";
 
-import Grid from "@mui/material/Grid";
 import { Card } from "@mui/material";
 
 import VuiBox from "components/VuiBox";
@@ -18,8 +17,11 @@ import { DEFAULT_CONFIG, RECURSOS, TIPOS_CURSO, cursosComCor, recursoLigado, tip
 
 import BarraStatus from "layouts/shared/BarraStatus";
 import Feriados from "layouts/configuracoes/Feriados";
+import Ferias from "layouts/configuracoes/Ferias";
 import { FieldLabel } from "layouts/shared/fields";
 
+// os cartões se encaixam em duas colunas em telas grandes, sem sobrar espaço vazio entre eles
+const cartaoColuna = { breakInside: "avoid", display: "inline-block", width: "100%", mb: "24px" };
 const COR = /^#[0-9a-fA-F]{6}$/;
 const recursosDe = (cfg) => RECURSOS.reduce((o, r) => ({ ...o, [r.chave]: recursoLigado(cfg, r.chave) }), {});
 
@@ -138,16 +140,16 @@ function Configuracoes() {
           <input
             type="color"
             value={COR.test(v[c.chave]) ? v[c.chave] : "#E3242B"}
-            disabled={!pode.admin}
+            disabled={!pode.config}
             onChange={set(c.chave)}
-            style={{ width: 48, height: 36, border: "none", background: "transparent", cursor: pode.admin ? "pointer" : "default" }}
+            style={{ width: 48, height: 36, border: "none", background: "transparent", cursor: pode.config ? "pointer" : "default" }}
           />
           <VuiTypography variant="caption" color="text">
             {v[c.chave]}
           </VuiTypography>
         </VuiBox>
       ) : (
-        <VuiInput fullWidth value={v[c.chave]} onChange={set(c.chave)} disabled={!pode.admin} error={Boolean(erros[c.chave])} inputProps={{ inputMode: c.tipo === "inteiro" ? "numeric" : undefined }} />
+        <VuiInput fullWidth value={v[c.chave]} onChange={set(c.chave)} disabled={!pode.config} error={Boolean(erros[c.chave])} inputProps={{ inputMode: c.tipo === "inteiro" ? "numeric" : undefined }} />
       )}
       <VuiTypography variant="caption" color={erros[c.chave] ? "error" : "text"} sx={{ display: "block", mt: "4px" }}>
         {erros[c.chave] || c.ajuda}
@@ -165,10 +167,10 @@ function Configuracoes() {
               Configurações
             </VuiTypography>
             <VuiTypography variant="button" color="text" fontWeight="regular">
-              Parâmetros da aba Config da planilha.{pode.admin ? " As alterações são gravadas direto nela." : " Só o perfil Admin pode alterar."}
+              Parâmetros da aba Config da planilha.{pode.config ? " As alterações são gravadas direto nela." : " Só o perfil Admin pode alterar."}
             </VuiTypography>
           </VuiBox>
-          {pode.admin && (
+          {pode.config && (
             <VuiButton color="info" variant="contained" disabled={ocupado} onClick={salvar}>
               <IoSave size="16px" style={{ marginRight: 8 }} />
               {ocupado ? "Salvando…" : "Salvar alterações"}
@@ -182,18 +184,18 @@ function Configuracoes() {
           </VuiTypography>
         )}
 
-        <Grid container spacing={3}>
+        <VuiBox sx={{ columnCount: { xs: 1, xl: 2 }, columnGap: "24px" }}>
           {CAMPOS.map((g) => (
-            <Grid item xs={12} xl={6} key={g.grupo}>
+            <VuiBox key={g.grupo} sx={cartaoColuna}>
               <Card>
                 <VuiTypography variant="lg" color="white" fontWeight="bold" mb="16px">
                   {g.grupo}
                 </VuiTypography>
                 <VuiBox sx={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: "18px" }}>{g.itens.map(campo)}</VuiBox>
               </Card>
-            </Grid>
+            </VuiBox>
           ))}
-          <Grid item xs={12} xl={6}>
+          <VuiBox sx={cartaoColuna}>
             <Card>
               <VuiTypography variant="lg" color="white" fontWeight="bold" mb="4px">
                 Funcionalidades
@@ -214,7 +216,7 @@ function Configuracoes() {
                   <VuiSwitch
                     color="info"
                     checked={Boolean(recs[r.chave])}
-                    disabled={!pode.admin}
+                    disabled={!pode.config}
                     onChange={(e) => {
                       setRecs((x) => ({ ...x, [r.chave]: e.target.checked }));
                       setMsg({ tipo: "", texto: "" });
@@ -223,10 +225,10 @@ function Configuracoes() {
                 </VuiBox>
               ))}
             </Card>
-          </Grid>
+          </VuiBox>
 
           {tiposComCurso.length > 0 && (
-            <Grid item xs={12} xl={6}>
+            <VuiBox sx={cartaoColuna}>
               <Card>
                 <VuiTypography variant="lg" color="white" fontWeight="bold" mb="4px">
                   Cores dos cursos
@@ -242,9 +244,9 @@ function Configuracoes() {
                         <input
                           type="color"
                           value={COR.test(coresTipo[t]) ? coresTipo[t] : "#E3242B"}
-                          disabled={!pode.admin}
+                          disabled={!pode.config}
                           onChange={mudarCorTipo(t)}
-                          style={{ width: 48, height: 36, border: "none", background: "transparent", cursor: pode.admin ? "pointer" : "default" }}
+                          style={{ width: 48, height: 36, border: "none", background: "transparent", cursor: pode.config ? "pointer" : "default" }}
                         />
                         <VuiTypography variant="caption" color="text">
                           {coresTipo[t]}
@@ -257,15 +259,19 @@ function Configuracoes() {
                   ))}
                 </VuiBox>
               </Card>
-            </Grid>
+            </VuiBox>
           )}
-        </Grid>
-
-        {recursos.feriados && (
-          <VuiBox mt={3}>
-            <Feriados />
-          </VuiBox>
-        )}
+          {recursos.feriados && (
+            <VuiBox sx={cartaoColuna}>
+              <Feriados />
+            </VuiBox>
+          )}
+          {recursos.feriados && (
+            <VuiBox sx={cartaoColuna}>
+              <Ferias />
+            </VuiBox>
+          )}
+        </VuiBox>
       </VuiBox>
     </DashboardLayout>
   );

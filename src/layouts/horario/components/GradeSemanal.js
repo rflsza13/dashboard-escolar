@@ -42,7 +42,7 @@ function GradeSemanal({ dias, sessoes, onSelecionar, feriados }) {
             </VuiTypography>
             {feriados[i] && (
               <VuiTypography variant="caption" sx={{ display: "block", mt: "2px", color: "#F5A524", fontWeight: 700, lineHeight: 1.2 }}>
-                Feriado · {feriados[i].nome}
+                {feriados[i].origem === "ferias" ? "Férias" : "Feriado"} · {feriados[i].nome}
               </VuiTypography>
             )}
           </VuiBox>

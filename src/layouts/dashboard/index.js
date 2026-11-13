@@ -16,7 +16,7 @@ import { IoSchool, IoCheckmarkDone, IoCloseCircle, IoRepeat, IoCalendar } from "
 
 import { useEscola } from "context/escola";
 import {
-  alertasDeRisco, andamentoPorHorario, DEFAULT_CONFIG, feriadoDaData, ehFalta, ehPresenca, escalaDoDia, faltasSemReposicao, fimDaAula, hojeIso, montarSessoes,
+  alertasDeRisco, andamentoPorHorario, DEFAULT_CONFIG, feriadoDaData, formatarData, marcada, ehFalta, ehPresenca, escalaDoDia, faltasSemReposicao, fimDaAula, hojeIso, montarSessoes,
   rankingFaltas, segundaDaSemana, somarDias,
 } from "utils/escola";
 
@@ -101,24 +101,31 @@ function Dashboard() {
                 Andamento das aulas de hoje
               </VuiTypography>
               <VuiTypography variant="button" color="text" fontWeight="regular" mb="20px" sx={{ display: "block" }}>
-                Por horário. Clique em um aluno para marcar presença, falta ou reposição.
+                Por horário, só o que ainda falta registrar. Clique em um aluno para marcar presença, falta ou reposição.
               </VuiTypography>
               {feriadoHoje && (
                 <VuiBox sx={{ mb: 2, p: "10px 14px", borderRadius: "12px", borderLeft: "4px solid #F5A524", background: "rgba(245,165,36,0.10)" }}>
                   <VuiTypography variant="button" color="white" fontWeight="bold" sx={{ display: "block" }}>
-                    Hoje é feriado: {feriadoHoje.nome}
+                    {feriadoHoje.origem === "ferias" ? `Estamos em férias: ${feriadoHoje.nome}` : `Hoje é feriado: ${feriadoHoje.nome}`}
                   </VuiTypography>
                   <VuiTypography variant="caption" color="text">
-                    As aulas regulares não aparecem hoje. Aulas avulsas, reposições e experimentais já marcadas continuam na lista.
+                    {feriadoHoje.origem === "ferias" ? `Até ${formatarData(feriadoHoje.fim)}. ` : ""}As aulas regulares não aparecem hoje. Aulas avulsas, reposições e experimentais já marcadas continuam na lista.
                   </VuiTypography>
                 </VuiBox>
               )}
               {horariosDoDia.length === 0 && (
                 <VuiTypography variant="button" color="text" fontWeight="regular">
-                  {feriadoHoje ? "Sem aulas hoje." : "Nenhuma aula marcada para hoje."}
+                  {feriadoHoje ? (feriadoHoje.origem === "ferias" ? "Sem aulas durante as férias." : "Sem aulas hoje.") : "Nenhuma aula marcada para hoje."}
+                </VuiTypography>
+              )}
+              {horariosDoDia.length > 0 && horariosDoDia.every((g) => g.sessoes.every((s) => marcada(s.status))) && (
+                <VuiTypography variant="button" color="success" fontWeight="medium" sx={{ display: "block", mb: 2 }}>
+                  Todas as aulas de hoje já foram registradas.
                 </VuiTypography>
               )}
               {horariosDoDia.map((g) => {
+                const pendentes = g.sessoes.filter((s) => !marcada(s.status));
+                if (!pendentes.length) return null;
                 const pct = g.total ? (g.marcadas / g.total) * 100 : 0;
                 return (
                   <VuiBox key={g.hora} mb={3}>
@@ -128,7 +135,7 @@ function Dashboard() {
                           {g.hora}
                         </VuiTypography>
                         <VuiTypography variant="caption" color="text">
-                          {g.total} {g.total === 1 ? "aula" : "aulas"}
+                          {pendentes.length} {pendentes.length === 1 ? "pendente" : "pendentes"}
                         </VuiTypography>
                       </VuiBox>
                       <VuiTypography variant="caption" color="text">
@@ -137,7 +144,7 @@ function Dashboard() {
                     </VuiBox>
                     <VuiProgress value={pct} color="info" sx={{ background: "#2A2A2A" }} />
                     <VuiBox mt={1.5}>
-                      {g.sessoes.map((s) => (
+                      {pendentes.map((s) => (
                         <VuiBox
                           key={s.chave}
                           onClick={() => setAula(s)}

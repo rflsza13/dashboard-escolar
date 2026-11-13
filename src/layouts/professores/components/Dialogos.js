@@ -60,8 +60,9 @@ const linhaVazia = (dia = "", inicio = "") => {
 };
 
 export function EscalaDialog({ open, bloco, diaInicial, horaInicial, onClose }) {
-  const { dados, salvar, excluir } = useEscola();
+  const { dados, salvar, excluir, recursos } = useEscola();
   const editando = Boolean(bloco);
+  const areas = recursos.ingles ? CATEGORIAS : CATEGORIAS.filter((a) => a !== "Inglês");
   const [professorId, setProfessorId] = useState("");
   const [obs, setObs] = useState("");
   const [linhas, setLinhas] = useState([linhaVazia()]);
@@ -189,7 +190,7 @@ export function EscalaDialog({ open, bloco, diaInicial, horaInicial, onClose }) 
                 <FieldLabel>Área</FieldLabel>
                 <NativeSelect value={l.area} onChange={(e) => mudarLinha(i, { area: e.target.value })}>
                   <option value="">{editando && !bloco.categoria ? "Sem área definida — escolha uma" : "Escolha…"}</option>
-                  {CATEGORIAS.map((a) => (
+                  {areas.map((a) => (
                     <option key={a} value={a}>
                       {ROTULO_CATEGORIA[a]} (todos os cursos)
                     </option>

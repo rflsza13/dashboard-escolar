@@ -3,7 +3,7 @@
  * Deve ficar "preso" à planilha: Extensões > Apps Script, dentro do arquivo da escola.
  *
  * Segurança: o site faz login com Google (ID token). Este script confere o token e só deixa
- * passar e-mails ativos listados na aba Usuarios, aplicando o perfil (Admin, Professor, Consulta).
+ * passar e-mails ativos listados na aba Usuarios, aplicando o perfil (Admin, Informática, Inglês, Secretaria, Diretor).
  */
 
 // ID de cliente OAuth (Google Cloud > APIs e serviços > Credenciais). É público, não é segredo.
@@ -24,24 +24,32 @@ const SCHEMA = {
   Movimentacoes: [['id','t'],['data','d'],['alunoId','t'],['matriculaId','t'],['tipo','t'],['motivo','t'],['obs','t'],['registradoPor','t']],
   Avaliacoes: [['id','t'],['matriculaId','t'],['tipo','t'],['data','d'],['conceito','t'],['nota','n'],['comentario','t'],['professorId','t']],
   Feriados:   [['id','t'],['data','d'],['nome','t'],['aula','t']],
+  Ferias:     [['id','t'],['inicio','d'],['fim','d'],['nome','t']],
   Usuarios:   [['email','t'],['nome','t'],['perfil','t'],['ativo','t']]
 };
-const CHAVE_DADOS = { Alunos: 'alunos', Professores: 'professores', Escala: 'escala', Cursos: 'cursos', Modulos: 'modulos', Matriculas: 'matriculas', Aulas: 'aulas', Progresso: 'progresso', Pontos: 'pontos', Premios: 'premios', Migracao: 'migracao', Movimentacoes: 'movimentacoes', Avaliacoes: 'avaliacoes', Feriados: 'feriados' };
-const PREFIXO = { Alunos: 'A', Professores: 'PRF', Escala: 'ESC', Cursos: 'C', Modulos: 'MOD', Matriculas: 'MAT', Aulas: 'AUL', Progresso: 'PRG', Pontos: 'P', Premios: 'PR', Migracao: 'MIG', Movimentacoes: 'MOV', Avaliacoes: 'AVA', Feriados: 'FER' };
+const CHAVE_DADOS = { Alunos: 'alunos', Professores: 'professores', Escala: 'escala', Cursos: 'cursos', Modulos: 'modulos', Matriculas: 'matriculas', Aulas: 'aulas', Progresso: 'progresso', Pontos: 'pontos', Premios: 'premios', Migracao: 'migracao', Movimentacoes: 'movimentacoes', Avaliacoes: 'avaliacoes', Feriados: 'feriados', Ferias: 'ferias' };
+const PREFIXO = { Alunos: 'A', Professores: 'PRF', Escala: 'ESC', Cursos: 'C', Modulos: 'MOD', Matriculas: 'MAT', Aulas: 'AUL', Progresso: 'PRG', Pontos: 'P', Premios: 'PR', Migracao: 'MIG', Movimentacoes: 'MOV', Avaliacoes: 'AVA', Feriados: 'FER', Ferias: 'FRS' };
+// Perfis (aba Usuarios): Admin altera tudo, inclusive as configurações; Secretaria e Diretor gerenciam os cadastros e movimentações (tudo, menos as configurações);
+// Informática e Inglês (instrutores) veem só a própria área e marcam aulas, pontos manuais, notas e avaliações dela.
+// 'Professor' (perfil antigo) continua valendo como instrutor das duas áreas, e 'Consulta' como somente leitura.
+const PERFIS_GESTAO = ['Admin', 'Secretaria', 'Diretor'];
+const PERFIS_INSTRUTOR = ['Informática', 'Inglês', 'Professor'];
+const PERFIS_OPERACAO = PERFIS_GESTAO.concat(PERFIS_INSTRUTOR);
 const QUEM_GRAVA = {
-  Aulas: ['Admin', 'Professor'], Pontos: ['Admin', 'Professor'], Migracao: ['Admin', 'Professor'], Avaliacoes: ['Admin', 'Professor'], Movimentacoes: ['Admin'], Feriados: ['Admin'],
-  Alunos: ['Admin'], Cursos: ['Admin'], Modulos: ['Admin'], Matriculas: ['Admin'], Progresso: ['Admin'], Premios: ['Admin'],
-  Professores: ['Admin'], Escala: ['Admin']
+  Aulas: PERFIS_OPERACAO, Pontos: PERFIS_OPERACAO, Migracao: PERFIS_OPERACAO, Avaliacoes: PERFIS_OPERACAO,
+  Movimentacoes: PERFIS_GESTAO, Feriados: ['Admin'], Ferias: ['Admin'],
+  Alunos: PERFIS_GESTAO, Cursos: PERFIS_GESTAO, Modulos: PERFIS_GESTAO, Matriculas: PERFIS_GESTAO, Progresso: PERFIS_GESTAO, Premios: PERFIS_GESTAO,
+  Professores: PERFIS_GESTAO, Escala: PERFIS_GESTAO
 };
 // Abas criadas pela função prepararNovidades; se ainda não existirem, o sistema segue funcionando sem elas
-const OPCIONAIS = ['Professores', 'Escala', 'Migracao', 'Movimentacoes', 'Avaliacoes', 'Feriados'];
+const OPCIONAIS = ['Professores', 'Escala', 'Migracao', 'Movimentacoes', 'Avaliacoes', 'Feriados', 'Ferias'];
 const OBRIGATORIOS = {
   Alunos: ['nome'], Cursos: ['nome'], Modulos: ['cursoId', 'ordem', 'nome'],
   Matriculas: ['alunoId', 'cursoId', 'dia', 'inicio', 'modalidade', 'status'],
   Aulas: ['data', 'matriculaId', 'tipo'], Progresso: ['matriculaId', 'moduloId', 'concluidoEm'],
   Pontos: ['data', 'alunoId', 'tipo', 'pontos'], Premios: ['nome', 'custo'],
   Professores: ['nome'], Escala: ['professorId', 'dia', 'inicio', 'fim'], Migracao: ['matriculaId'],
-  Movimentacoes: ['data', 'alunoId', 'tipo'], Avaliacoes: ['matriculaId', 'tipo', 'data', 'conceito'], Feriados: ['data', 'nome']
+  Movimentacoes: ['data', 'alunoId', 'tipo'], Avaliacoes: ['matriculaId', 'tipo', 'data', 'conceito'], Feriados: ['data', 'nome'], Ferias: ['inicio', 'fim', 'nome']
 };
 const VALORES = {
   'Aulas.tipo': ['Regular', 'Reposição', 'Avulsa', 'Experimental'],
@@ -70,7 +78,7 @@ const CONFIG_CHAVES = {
   'Grade: hora inicial': 'gradeInicio', 'Grade: hora final': 'gradeFim', 'Cor: aulas online': 'corOnline',
   'Cor: reposições': 'corReposicao', 'Cor: aula experimental': 'corExperimental',
   'Alerta de evasão: faltas seguidas': 'riscoFaltasSeguidas', 'Alerta de evasão: reposições pendentes': 'riscoReposicoes',
-  'Recurso: feriados': 'recursoFeriados', 'Recurso: saldo do sistema anterior': 'recursoMigracao', 'Recurso: avaliações': 'recursoAvaliacoes', 'Recurso: alertas de evasão': 'recursoAlertas',
+  'Recurso: feriados': 'recursoFeriados', 'Recurso: curso de inglês': 'recursoIngles', 'Recurso: saldo do sistema anterior': 'recursoMigracao', 'Recurso: avaliações': 'recursoAvaliacoes', 'Recurso: alertas de evasão': 'recursoAlertas',
   'Recurso: pontos e recompensas': 'recursoPontos', 'Recurso: professores e escala': 'recursoProfessores', 'Recurso: aulas experimentais': 'recursoExperimentais'
 };
 // Funcionalidades ligáveis/desligáveis (valor Sim/Não na aba Config; sem a linha, a funcionalidade fica ligada)
@@ -117,7 +125,8 @@ function executar(req, u) {
     case 'salvar': {
       exigir(u, QUEM_GRAVA[req.tabela]);
       const reg = req.registro || {};
-      if (req.tabela === 'Pontos' && u.perfil !== 'Admin') {
+      exigirAreaDoRegistro(u, req.tabela, reg);
+      if (req.tabela === 'Pontos' && PERFIS_GESTAO.indexOf(u.perfil) === -1) {
         if (reg.tipo !== 'Ganho (manual)') throw falha('FORBIDDEN', 'Seu perfil só pode lançar pontos manuais.');
         const T = lerTabela('Pontos');
         const atual = T.registros.find(function (r) { return r.id === reg.id; });
@@ -128,7 +137,8 @@ function executar(req, u) {
     }
     case 'excluir': {
       exigir(u, QUEM_GRAVA[req.tabela]);
-      if (req.tabela === 'Pontos' && u.perfil !== 'Admin') {
+      exigirAreaDoRegistro(u, req.tabela, (lerTabela(req.tabela).registros.find(function (r) { return r.id === req.id; })) || {});
+      if (req.tabela === 'Pontos' && PERFIS_GESTAO.indexOf(u.perfil) === -1) {
         const T = lerTabela('Pontos');
         const atual = T.registros.find(function (r) { return r.id === req.id; });
         if (atual && atual.tipo !== 'Ganho (manual)') throw falha('FORBIDDEN', 'Este lançamento só pode ser excluído por um Admin.');
@@ -137,22 +147,27 @@ function executar(req, u) {
       return { ok: true };
     }
     case 'concluirModulo':
-      exigir(u, ['Admin', 'Professor']);
+      exigir(u, PERFIS_OPERACAO);
+      exigirAreaDaMatricula(u, req.matriculaId);
       return concluirModulo(req, u);
     case 'resgatar':
-      exigir(u, ['Admin', 'Professor']);
+      exigir(u, PERFIS_OPERACAO);
+      exigirAreaDoAluno(u, req.alunoId);
       return resgatar(req.alunoId, req.premioId, u);
     case 'criarExperimental':
-      exigir(u, ['Admin', 'Professor']);
+      exigir(u, PERFIS_OPERACAO);
+      exigirAreaDoCurso(u, req.cursoId);
       return criarExperimental(req, u);
     case 'movimentar':
-      exigir(u, ['Admin']);
+      exigir(u, PERFIS_GESTAO);
       return movimentar(req, u);
     case 'avaliacaoFinal':
-      exigir(u, ['Admin', 'Professor']);
+      exigir(u, PERFIS_OPERACAO);
+      exigirAreaDaMatricula(u, req.matriculaId);
       return avaliacaoFinal(req, u);
     case 'notaModulo':
-      exigir(u, ['Admin', 'Professor']);
+      exigir(u, PERFIS_OPERACAO);
+      exigirAreaDaMatricula(u, req.matriculaId);
       return notaModulo(req, u);
     case 'salvarConfig':
       exigir(u, ['Admin']);
@@ -224,7 +239,14 @@ function autenticar(token) {
   if (!linha || String(linha.ativo).toLowerCase() === 'não' || String(linha.ativo).toLowerCase() === 'nao') {
     throw falha('NOUSER', 'O e-mail ' + email + ' não tem acesso. Peça para ser incluído na aba Usuarios.');
   }
-  return { email: email, nome: linha.nome || email, perfil: linha.perfil || 'Consulta' };
+  return { email: email, nome: linha.nome || email, perfil: normalizarPerfil(linha.perfil) };
+}
+
+// Aceita o perfil digitado sem acento ou em minúsculas (ex.: "informatica", "INGLES"); desconhecido vira Consulta (só leitura)
+function normalizarPerfil(p) {
+  const t = String(p || '').trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  const mapa = { admin: 'Admin', informatica: 'Informática', ingles: 'Inglês', secretaria: 'Secretaria', diretor: 'Diretor', professor: 'Professor', consulta: 'Consulta' };
+  return mapa[t] || 'Consulta';
 }
 
 function exigir(u, perfis) {
@@ -396,6 +418,10 @@ const ABAS_AUTO = {
   Feriados: {
     titulos: ['ID', 'Data', 'Nome do feriado ou dia sem aula', 'Tem aula? (Sim/Não)'],
     larguras: [90, 100, 320, 150]
+  },
+  Ferias: {
+    titulos: ['ID', 'Início', 'Fim', 'Nome do período de férias'],
+    larguras: [90, 100, 100, 320]
   }
 };
 function criarAba(nome) {
@@ -413,6 +439,7 @@ function criarAba(nome) {
 function salvarRegistro(nome, reg, usuario) {
   if (!SCHEMA[nome] || nome === 'Usuarios') throw falha('ERRO', 'Tabela inválida: ' + nome);
   validar(nome, reg);
+  if (nome === 'Ferias' && String(reg.fim) < String(reg.inicio)) throw falha('VALIDACAO', 'A data final das férias deve ser igual ou depois da inicial.');
   if (nome === 'Migracao') {
     ['presencas', 'faltas', 'reposicoesPendentes'].forEach(function (k) {
       const v = Number(reg[k] === '' || reg[k] === null || reg[k] === undefined ? 0 : reg[k]);
@@ -484,7 +511,7 @@ function salvarConfig(cfg) {
     gradeInicio: function (v) { v = Number(v); if (!isFinite(v) || v < 0 || v > 23) throw falha('ERRO', 'Hora inicial inválida.'); return v; },
     gradeFim: function (v) { v = Number(v); if (!isFinite(v) || v < 1 || v > 24) throw falha('ERRO', 'Hora final inválida.'); return v; },
     corOnline: corValida, corReposicao: corValida, corExperimental: corValida,
-    recursoPontos: boolSim, recursoProfessores: boolSim, recursoExperimentais: boolSim, recursoAvaliacoes: boolSim, recursoAlertas: boolSim, recursoMigracao: boolSim, recursoFeriados: boolSim,
+    recursoPontos: boolSim, recursoProfessores: boolSim, recursoExperimentais: boolSim, recursoAvaliacoes: boolSim, recursoAlertas: boolSim, recursoMigracao: boolSim, recursoFeriados: boolSim, recursoIngles: boolSim,
     riscoFaltasSeguidas: inteiroMin1, riscoReposicoes: inteiroMin1
   };
   function inteiroMin1(v) { v = Number(v); if (!isFinite(v) || v < 1 || Math.floor(v) !== v) throw falha('ERRO', 'Os limites do alerta devem ser números inteiros, 1 ou mais.'); return v; }
@@ -504,9 +531,71 @@ function salvarConfig(cfg) {
   return { ok: true, config: lerConfig() };
 }
 
+// ---- Área do usuário: Informática vê só Programação/Robótica e Inglês vê só Inglês (os demais perfis veem tudo) ----
+function areaDoPerfil(u) {
+  return u.perfil === 'Informática' ? 'Programação' : u.perfil === 'Inglês' ? 'Inglês' : '';
+}
+function areaDoCurso(c) {
+  return /ingl[eê]s|english/i.test(String((c && c.nome) || '') + ' ' + String((c && c.grupo) || '')) ? 'Inglês' : 'Programação';
+}
+function rotuloArea(area) { return area === 'Inglês' ? 'inglês' : 'informática (programação e robótica)'; }
+
+function exigirAreaDoCurso(u, cursoId) {
+  const area = areaDoPerfil(u);
+  if (!area) return;
+  const curso = lerTabela('Cursos').registros.find(function (c) { return c.id === cursoId; });
+  if (!curso || areaDoCurso(curso) !== area) throw falha('FORBIDDEN', 'Seu perfil só acessa os dados de ' + rotuloArea(area) + '.');
+}
+function exigirAreaDaMatricula(u, matriculaId) {
+  if (!areaDoPerfil(u)) return;
+  const mat = lerTabela('Matriculas').registros.find(function (m) { return m.id === matriculaId; });
+  if (!mat) throw falha('ERRO', 'Matrícula não encontrada.');
+  exigirAreaDoCurso(u, mat.cursoId);
+}
+function exigirAreaDoAluno(u, alunoId) {
+  const area = areaDoPerfil(u);
+  if (!area) return;
+  const cursos = lerTabela('Cursos').registros;
+  const tem = lerTabela('Matriculas').registros.some(function (m) {
+    if (m.alunoId !== alunoId) return false;
+    const c = cursos.find(function (x) { return x.id === m.cursoId; });
+    return c && areaDoCurso(c) === area;
+  });
+  if (!tem) throw falha('FORBIDDEN', 'Seu perfil só acessa os dados de ' + rotuloArea(area) + '.');
+}
+// confere a área nas tabelas que os instrutores podem gravar (aula, nota, avaliação, saldo anterior e pontos)
+function exigirAreaDoRegistro(u, tabela, reg) {
+  if (!areaDoPerfil(u)) return;
+  if (tabela === 'Pontos') { if (reg.alunoId) exigirAreaDoAluno(u, reg.alunoId); return; }
+  if (['Aulas', 'Migracao', 'Avaliacoes'].indexOf(tabela) > -1 && reg.matriculaId) exigirAreaDaMatricula(u, reg.matriculaId);
+}
+
+function filtrarPorArea(dados, area) {
+  if (!area) return dados;
+  const cursos = dados.cursos.filter(function (c) { return areaDoCurso(c) === area; });
+  const idsCurso = {};
+  cursos.forEach(function (c) { idsCurso[c.id] = true; });
+  const mats = dados.matriculas.filter(function (m) { return idsCurso[m.cursoId]; });
+  const idsMat = {};
+  const idsAluno = {};
+  mats.forEach(function (m) { idsMat[m.id] = true; idsAluno[m.alunoId] = true; });
+  const daMat = function (lista) { return lista.filter(function (x) { return idsMat[x.matriculaId]; }); };
+  return Object.assign({}, dados, {
+    cursos: cursos,
+    modulos: dados.modulos.filter(function (m) { return idsCurso[m.cursoId]; }),
+    matriculas: mats,
+    alunos: dados.alunos.filter(function (a) { return idsAluno[a.id]; }),
+    aulas: daMat(dados.aulas), progresso: daMat(dados.progresso), migracao: daMat(dados.migracao),
+    avaliacoes: daMat(dados.avaliacoes), movimentacoes: daMat(dados.movimentacoes),
+    pontos: dados.pontos.filter(function (p) { return idsAluno[p.alunoId]; }),
+    escala: dados.escala.filter(function (b) { return !b.cursoId || b.cursoId === 'area:' + area || idsCurso[b.cursoId]; })
+  });
+}
+
 function carregar(u) {
-  const dados = {};
+  let dados = {};
   Object.keys(CHAVE_DADOS).forEach(function (nome) { dados[CHAVE_DADOS[nome]] = lerTabela(nome).registros; });
+  dados = filtrarPorArea(dados, areaDoPerfil(u));
   return { ok: true, eu: u, dados: dados, config: lerConfig() };
 }
 

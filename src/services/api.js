@@ -35,8 +35,8 @@ const remoto = {
 
 /* ---------------- modo demonstração (localStorage) ---------------- */
 const KEY = "escola-demo-v2";
-const CHAVE = { Alunos: "alunos", Professores: "professores", Escala: "escala", Cursos: "cursos", Modulos: "modulos", Matriculas: "matriculas", Aulas: "aulas", Progresso: "progresso", Pontos: "pontos", Premios: "premios", Migracao: "migracao", Movimentacoes: "movimentacoes", Avaliacoes: "avaliacoes", Feriados: "feriados" };
-const PREF = { Alunos: "A", Professores: "PRF", Escala: "ESC", Cursos: "C", Modulos: "MOD", Matriculas: "MAT", Aulas: "AUL", Progresso: "PRG", Pontos: "P", Premios: "PR", Migracao: "MIG", Movimentacoes: "MOV", Avaliacoes: "AVA", Feriados: "FER" };
+const CHAVE = { Alunos: "alunos", Professores: "professores", Escala: "escala", Cursos: "cursos", Modulos: "modulos", Matriculas: "matriculas", Aulas: "aulas", Progresso: "progresso", Pontos: "pontos", Premios: "premios", Migracao: "migracao", Movimentacoes: "movimentacoes", Avaliacoes: "avaliacoes", Feriados: "feriados", Ferias: "ferias" };
+const PREF = { Alunos: "A", Professores: "PRF", Escala: "ESC", Cursos: "C", Modulos: "MOD", Matriculas: "MAT", Aulas: "AUL", Progresso: "PRG", Pontos: "P", Premios: "PR", Migracao: "MIG", Movimentacoes: "MOV", Avaliacoes: "AVA", Feriados: "FER", Ferias: "FRS" };
 
 function semear() {
   let s = 20261028;
@@ -130,7 +130,7 @@ function semear() {
   ];
   const escala = faixas.map((f, i) => ({ id: `ESC${String(i + 1).padStart(3, "0")}`, professorId: f[0], dia: f[1], inicio: f[2], fim: f[3], cursoId: f[4], obs: "" }));
   return {
-    dados: { alunos, professores, escala, cursos, modulos, matriculas, aulas, progresso, pontos, premios, migracao: [], movimentacoes: [], avaliacoes: [], feriados: [] },
+    dados: { alunos, professores, escala, cursos, modulos, matriculas, aulas, progresso, pontos, premios, migracao: [], movimentacoes: [], avaliacoes: [], feriados: [], ferias: [] },
     config: { ...DEFAULT_CONFIG, nomeEscola: "Escola Exemplo", gradeInicio: 8, gradeFim: 20 },
   };
 }
@@ -184,7 +184,7 @@ const REFS = {
 const demo = {
   carregar: async () => {
     const db = ler();
-    return { ok: true, eu: { email: "demo@escola.local", nome: "Modo demonstração", perfil: "Admin" }, dados: db.dados, config: db.config };
+    return { ok: true, eu: { email: "demo@escola.local", nome: "Modo demonstração", perfil: (typeof window !== "undefined" && window.localStorage.getItem("escola-demo-perfil")) || "Admin" }, dados: db.dados, config: db.config };
   },
   salvar: async (t, tabela, registro) => {
     const db = ler();

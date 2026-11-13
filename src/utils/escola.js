@@ -31,6 +31,7 @@ export const DEFAULT_CONFIG = {
   recursoAlertas: true,
   recursoMigracao: false,
   recursoFeriados: true,
+  recursoIngles: true,
   riscoFaltasSeguidas: 3,
   riscoReposicoes: 2,
 };
@@ -45,7 +46,8 @@ export const RECURSOS = [
   { chave: "recursoExperimentais", rotulo: "Aulas experimentais", ajuda: "Opção de cadastrar aula experimental em Nova aula." },
   { chave: "recursoAvaliacoes", rotulo: "Avaliações (notas e avaliação final)", ajuda: "Nota de cada módulo, avaliação final do curso, ficha do aluno e boletim." },
   { chave: "recursoMigracao", rotulo: "Saldo do sistema anterior (migração)", ajuda: "Mostra na ficha do aluno os contadores para lançar presenças, faltas e reposições pendentes do sistema antigo. Desligado, o bloco some, mas o que já foi lançado continua somando." },
-  { chave: "recursoFeriados", rotulo: "Feriados", ajuda: "Tira as aulas regulares dos feriados nacionais e dos dias cadastrados em Configurações → Feriados." },
+  { chave: "recursoFeriados", rotulo: "Feriados e férias", ajuda: "Tira as aulas regulares dos feriados nacionais, dos dias cadastrados e dos períodos de férias de Configurações." },
+  { chave: "recursoIngles", rotulo: "Curso de inglês", ajuda: "Desligado, esconde tudo do inglês (cursos, alunos, aulas, escala e a aba Inglês da grade). Os dados continuam salvos e voltam ao religar." },
   { chave: "recursoAlertas", rotulo: "Alertas de risco de evasão", ajuda: "Card Alunos em risco no dashboard e marcação na lista e na ficha do aluno." },
 ];
 export function recursoLigado(cfg, chave) {
@@ -599,11 +601,14 @@ export function feriadosNacionais(ano) {
   return f;
 }
 
-// Dia sem aula: um feriado cadastrado ("Sem aula") ou nacional. Um dia cadastrado como "Com aula" cancela o feriado nacional.
+// Dia sem aula: um dia cadastrado ("Sem aula"), um período de férias ou um feriado nacional.
+// Um dia cadastrado como "Com aula" vale mais que as férias e que o feriado nacional.
 export function feriadoDoDia(iso, dados) {
   if (!iso) return null;
   const cadastrado = ((dados && dados.feriados) || []).find((x) => x.data === iso);
   if (cadastrado) return String(cadastrado.aula || "").trim().toLowerCase() === "sim" ? null : { nome: cadastrado.nome, origem: "cadastrado" };
+  const ferias = ((dados && dados.ferias) || []).find((x) => x.inicio && x.fim && iso >= x.inicio && iso <= x.fim);
+  if (ferias) return { nome: ferias.nome, origem: "ferias", fim: ferias.fim };
   const nome = feriadosNacionais(Number(String(iso).slice(0, 4)))[iso];
   return nome ? { nome, origem: "nacional" } : null;
 }
@@ -639,4 +644,69 @@ export function andamentoPorHorario(sessoes) {
   return Object.values(grupos)
     .map((g) => ({ ...g, sessoes: [...g.sessoes].sort((a, b) => a.aluno.localeCompare(b.aluno, "pt-BR")) }))
     .sort((a, b) => horaParaMin(a.hora) - horaParaMin(b.hora));
+}
+
+/* ---------- esconder o curso de inglês ---------- */
+// Visão dos dados sem nada do inglês: cursos, módulos, matrículas e o que depende delas, alunos que só têm inglês e a escala "Inglês".
+// Os dados continuam na planilha; só deixam de aparecer enquanto o interruptor "Curso de inglês" estiver desligado.
+export function semIngles(dados) {
+  const cursosIng = new Set((dados.cursos || []).filter((c) => tipoDoCurso(c) === "Inglês").map((c) => c.id));
+  const ehEscalaIngles = (b) => b.cursoId === `${PREFIXO_AREA}${CAT_INGLES}` || cursosIng.has(b.cursoId);
+  const temEscalaIngles = (dados.escala || []).some(ehEscalaIngles);
+  if (!cursosIng.size && !temEscalaIngles) return dados;
+  const matsIng = (dados.matriculas || []).filter((m) => cursosIng.has(m.cursoId));
+  const mats = (dados.matriculas || []).filter((m) => !cursosIng.has(m.cursoId));
+  const idsMat = new Set(mats.map((m) => m.id));
+  const idsMatIng = new Set(matsIng.map((m) => m.id));
+  const comOutros = new Set(mats.map((m) => m.alunoId));
+  const ocultos = new Set(matsIng.map((m) => m.alunoId).filter((id) => !comOutros.has(id)));
+  const dosVisiveis = (lista) => (lista || []).filter((x) => !idsMatIng.has(x.matriculaId));
+  return {
+    ...dados,
+    cursos: (dados.cursos || []).filter((c) => !cursosIng.has(c.id)),
+    modulos: (dados.modulos || []).filter((m) => !cursosIng.has(m.cursoId)),
+    matriculas: mats,
+    alunos: (dados.alunos || []).filter((a) => !ocultos.has(a.id)),
+    aulas: (dados.aulas || []).filter((a) => idsMat.has(a.matriculaId) || !idsMatIng.has(a.matriculaId)),
+    progresso: dosVisiveis(dados.progresso),
+    migracao: dosVisiveis(dados.migracao),
+    movimentacoes: dosVisiveis(dados.movimentacoes),
+    avaliacoes: dosVisiveis(dados.avaliacoes),
+    pontos: (dados.pontos || []).filter((p) => !ocultos.has(p.alunoId)),
+    escala: (dados.escala || []).filter((b) => !ehEscalaIngles(b)),
+  };
+}
+
+/* ---------- perfis de usuário ---------- */
+// Admin altera tudo (inclusive Configurações); Secretaria e Diretor gerenciam cadastros e movimentações;
+// Informática e Inglês veem só a própria área e marcam aulas, pontos manuais, notas e avaliações dela.
+// "Professor" (antigo) vale como instrutor das duas áreas e "Consulta" é somente leitura.
+export const PERFIS = ["Admin", "Informática", "Inglês", "Secretaria", "Diretor"];
+export const PERFIS_GESTAO = ["Admin", "Secretaria", "Diretor"];
+export const PERFIS_INSTRUTOR = ["Informática", "Inglês", "Professor"];
+export const areaDoPerfil = (perfil) => (perfil === "Informática" ? CAT_PROGRAMACAO : perfil === "Inglês" ? CAT_INGLES : "");
+
+// Visão dos dados só da área do usuário (o servidor já filtra; aqui vale também para o modo demonstração)
+export function apenasArea(dados, area) {
+  if (!area) return dados;
+  const cursos = (dados.cursos || []).filter((c) => categoriaDoCurso(c) === area);
+  const idsCurso = new Set(cursos.map((c) => c.id));
+  const mats = (dados.matriculas || []).filter((m) => idsCurso.has(m.cursoId));
+  const idsMat = new Set(mats.map((m) => m.id));
+  const idsAluno = new Set(mats.map((m) => m.alunoId));
+  const daMat = (lista) => (lista || []).filter((x) => idsMat.has(x.matriculaId));
+  return {
+    ...dados,
+    cursos,
+    modulos: (dados.modulos || []).filter((m) => idsCurso.has(m.cursoId)),
+    matriculas: mats,
+    alunos: (dados.alunos || []).filter((a) => idsAluno.has(a.id)),
+    aulas: daMat(dados.aulas),
+    progresso: daMat(dados.progresso),
+    migracao: daMat(dados.migracao),
+    avaliacoes: daMat(dados.avaliacoes),
+    movimentacoes: daMat(dados.movimentacoes),
+    pontos: (dados.pontos || []).filter((p) => idsAluno.has(p.alunoId)),
+    escala: (dados.escala || []).filter((b) => !b.cursoId || b.cursoId === `${PREFIXO_AREA}${area}` || idsCurso.has(b.cursoId)),
+  };
 }

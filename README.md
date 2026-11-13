@@ -22,10 +22,10 @@ Painel de gestão para escolas de **programação, robótica e inglês**: grade 
 ## O que o painel faz
 
 **Dia a dia**
-- **Dashboard** com relógio, aulas e andamento do dia por horário, presenças e faltas de hoje, alunos que mais faltam, **alunos em risco de evasão** e professores do dia.
+- **Dashboard** com relógio, aulas do dia por horário (mostrando só o que ainda falta registrar), presenças e faltas de hoje, alunos que mais faltam, **alunos em risco de evasão** e professores do dia.
 - **Horário das aulas** em grade semanal de segunda a sábado, com os intervalos da escola (aulas de 1h30 e experimentais de 1h). Seletor entre **Programação / Robótica** e **Inglês**, com cores por tipo de curso, por modalidade online, por reposição e por aula experimental. Presença, falta e reposição são marcadas direto na grade.
 - **Aulas avulsas, de reposição e experimentais** pelo menu Nova aula (a reposição já liga à falta que está sendo reposta), com o professor responsável pela experimental. Uma aula pode ser **cancelada** só naquele dia (e restaurada depois) ou **apagada** da grade.
-- **Feriados**: os feriados nacionais são identificados sozinhos e as aulas regulares desses dias saem da grade. Feriados estaduais e municipais, recessos e exceções (dia com aula em feriado) são cadastrados em Configurações.
+- **Feriados e férias**: os feriados nacionais são identificados sozinhos e as aulas regulares desses dias saem da grade. Feriados estaduais e municipais, recessos, exceções (dia com aula em feriado) e **períodos de férias** são cadastrados em Configurações e aparecem marcados no cabeçalho da grade.
 - **Atualização automática** dos dados a cada 2 minutos, para vários professores usarem ao mesmo tempo.
 
 **Alunos e cursos**
@@ -43,8 +43,8 @@ Painel de gestão para escolas de **programação, robótica e inglês**: grade 
 - **Pontos e prêmios**: pontos por módulo concluído (com bônus de bom comportamento), pontos manuais, catálogo de prêmios, resgates e ranking.
 
 **Administração**
-- **Configurações** pelo próprio painel: nome da escola, pontos padrão, limites dos alertas, cores da grade e dos cursos, e **interruptores** para ligar ou desligar funcionalidades (pontos, professores, aulas experimentais, avaliações e notas, saldo do sistema anterior, feriados e alertas). Tudo é gravado na aba `Config` da planilha.
-- **Login com a conta Google uma única vez** (a sessão dura 180 dias, até clicar em sair) e **três perfis de acesso**.
+- **Configurações** pelo próprio painel: nome da escola, pontos padrão, limites dos alertas, cores da grade e dos cursos, e **interruptores** para ligar ou desligar funcionalidades (pontos, professores, aulas experimentais, avaliações e notas, saldo do sistema anterior, feriados e férias, curso de inglês e alertas). Tudo é gravado na aba `Config` da planilha.
+- **Login com a conta Google uma única vez** (a sessão dura 180 dias, até clicar em sair) e **perfis de acesso** (Admin, Secretaria, Diretor e instrutores de Informática e de Inglês).
 - **Visual próprio**: tema vermelho e preto, cards foscos transparentes, tela de login com imagem, barra de rolagem na cor do tema e menu lateral que expande com o mouse (e abre por um botão no celular).
 - **Modo demonstração**: sem configurar nada, o painel abre com dados fictícios guardados no navegador, ótimo para testar.
 
@@ -102,9 +102,11 @@ O passo a passo completo, com os detalhes do Google Cloud e do Apps Script, est�
 
 | Perfil | O que pode |
 |---|---|
-| **Admin** | Tudo: cadastros, configurações, saída e trancamento de alunos, prêmios e demais dados |
-| **Professor** | Marcar presença, falta e reposição, concluir módulo, lançar pontos manuais, criar aula avulsa ou experimental, avaliação final e saldo do sistema anterior |
-| **Consulta** | Somente leitura |
+| **Admin** | Tudo, inclusive a tela de **Configurações** (parâmetros, cores, interruptores, feriados e férias) |
+| **Secretaria** e **Diretor** | Acrescentar, editar e excluir tudo o que o Admin faz nos cadastros e movimentações (alunos, matrículas, cursos, módulos, professores, escala, prêmios, saída e trancamento), ver toda a grade e marcar aulas, pontos, notas e avaliações. Não abrem Configurações |
+| **Informática** e **Inglês** (instrutores) | Veem **só a própria área** (Informática: programação e robótica; Inglês: o curso de inglês) em todas as telas, inclusive a grade. Marcam presença, falta e reposição, concluem módulos, lançam pontos manuais, notas, avaliação final e saldo do sistema anterior, e criam aulas avulsas, de reposição e experimentais da própria área |
+
+Os perfis antigos continuam funcionando: **Professor** vale como instrutor das duas áreas e **Consulta** é somente leitura. O filtro por área é feito no servidor (o instrutor nem recebe os dados da outra área) e as gravações também são conferidas por área.
 
 ## Personalização
 

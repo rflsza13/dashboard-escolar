@@ -22,7 +22,7 @@ function Feriados() {
 
   const linhas = cadastrados.map((f) => ({
     chave: f.id,
-    onClick: pode.admin ? () => setDlg({ open: true, feriado: f }) : undefined,
+    onClick: pode.config ? () => setDlg({ open: true, feriado: f }) : undefined,
     celulas: [
       texto(formatarData(f.data), "white"),
       texto(f.nome, "white"),
@@ -37,7 +37,7 @@ function Feriados() {
           <VuiTypography variant="lg" color="white" fontWeight="bold">
             Feriados e dias sem aula
           </VuiTypography>
-          {pode.admin && (
+          {pode.config && (
             <VuiButton size="small" color="info" variant="contained" onClick={() => setDlg({ open: true, feriado: null })}>
               Novo feriado
             </VuiButton>

@@ -32,10 +32,13 @@ function Legenda({ cor, texto }) {
 const OPCOES_CURSO = [CAT_PROGRAMACAO, CAT_INGLES];
 
 function Horario() {
-  const { dados, pode, excluir } = useEscola();
+  const { dados, pode, excluir, recursos, areaPerfil } = useEscola();
   const cfg = { ...DEFAULT_CONFIG, ...dados.config };
   const [segunda, setSegunda] = useState(segundaDaSemana(hojeIso()));
-  const [cursoFiltro, setCursoFiltro] = useState(CAT_PROGRAMACAO);
+  const [filtroEscolhido, setCursoFiltro] = useState(CAT_PROGRAMACAO);
+  // instrutor vê só a aba da própria área; os demais, as abas liberadas em Configurações
+  const opcoesCurso = areaPerfil ? [areaPerfil] : recursos.ingles ? OPCOES_CURSO : [CAT_PROGRAMACAO];
+  const cursoFiltro = opcoesCurso.includes(filtroEscolhido) ? filtroEscolhido : opcoesCurso[0];
   const [aula, setAula] = useState(null);
   const [nova, setNova] = useState(false);
 
@@ -86,7 +89,7 @@ function Horario() {
 
         {/* Abas / Botões alternadores no topo da grade */}
         <VuiBox display="flex" alignItems="center" gap="10px" mb={2}>
-          {OPCOES_CURSO.map((opcao) => {
+          {opcoesCurso.length > 1 && opcoesCurso.map((opcao) => {
             const ativo = cursoFiltro === opcao;
             return (
               <VuiButton

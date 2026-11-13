@@ -2,14 +2,14 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useReducer,
 import PropTypes from "prop-types";
 
 import api, { isDemo } from "services/api";
-import { DEFAULT_CONFIG, novoId, recursoLigado } from "utils/escola";
+import { DEFAULT_CONFIG, PERFIS_GESTAO, PERFIS_INSTRUTOR, apenasArea, areaDoPerfil, novoId, recursoLigado, semIngles } from "utils/escola";
 
 const EscolaContext = createContext();
 EscolaContext.displayName = "EscolaContext";
 
-const CHAVE = { Alunos: "alunos", Professores: "professores", Escala: "escala", Cursos: "cursos", Modulos: "modulos", Matriculas: "matriculas", Aulas: "aulas", Progresso: "progresso", Pontos: "pontos", Premios: "premios", Migracao: "migracao", Movimentacoes: "movimentacoes", Avaliacoes: "avaliacoes", Feriados: "feriados" };
-const PREFIXO = { Alunos: "A", Professores: "PRF", Escala: "ESC", Cursos: "C", Modulos: "MOD", Matriculas: "MAT", Aulas: "AUL", Progresso: "PRG", Pontos: "P", Premios: "PR", Migracao: "MIG", Movimentacoes: "MOV", Avaliacoes: "AVA", Feriados: "FER" };
-const VAZIO = { alunos: [], professores: [], escala: [], cursos: [], modulos: [], matriculas: [], aulas: [], progresso: [], pontos: [], premios: [], migracao: [], movimentacoes: [], avaliacoes: [], feriados: [], config: DEFAULT_CONFIG };
+const CHAVE = { Alunos: "alunos", Professores: "professores", Escala: "escala", Cursos: "cursos", Modulos: "modulos", Matriculas: "matriculas", Aulas: "aulas", Progresso: "progresso", Pontos: "pontos", Premios: "premios", Migracao: "migracao", Movimentacoes: "movimentacoes", Avaliacoes: "avaliacoes", Feriados: "feriados", Ferias: "ferias" };
+const PREFIXO = { Alunos: "A", Professores: "PRF", Escala: "ESC", Cursos: "C", Modulos: "MOD", Matriculas: "MAT", Aulas: "AUL", Progresso: "PRG", Pontos: "P", Premios: "PR", Migracao: "MIG", Movimentacoes: "MOV", Avaliacoes: "AVA", Feriados: "FER", Ferias: "FRS" };
+const VAZIO = { alunos: [], professores: [], escala: [], cursos: [], modulos: [], matriculas: [], aulas: [], progresso: [], pontos: [], premios: [], migracao: [], movimentacoes: [], avaliacoes: [], feriados: [], ferias: [], config: DEFAULT_CONFIG };
 
 const TOKEN_KEY = "escola-id-token";
 
@@ -330,11 +330,20 @@ export function EscolaProvider({ children }) {
 
   const limparErro = useCallback(() => dispatch({ type: "ERRO", value: null }), []);
 
+  // com o interruptor "Curso de inglês" desligado, as telas recebem os dados sem nada do inglês (a planilha não muda)
+  const perfilAtual = state.user ? state.user.perfil : "";
+  const dadosVisiveis = useMemo(() => {
+    const base = recursoLigado(state.dados.config || {}, "recursoIngles") ? state.dados : semIngles(state.dados);
+    // instrutores (Informática / Inglês) veem só a própria área
+    return apenasArea(base, areaDoPerfil(perfilAtual));
+  }, [state.dados, perfilAtual]);
+
   const value = useMemo(() => {
     const perfil = state.user ? state.user.perfil : "";
     const cfgAtual = state.dados.config || {};
     return {
       ...state,
+      dados: dadosVisiveis,
       isDemo,
       recursos: {
         pontos: recursoLigado(cfgAtual, "recursoPontos"),
@@ -344,8 +353,15 @@ export function EscolaProvider({ children }) {
         alertas: recursoLigado(cfgAtual, "recursoAlertas"),
         migracao: recursoLigado(cfgAtual, "recursoMigracao"),
         feriados: recursoLigado(cfgAtual, "recursoFeriados"),
+        ingles: recursoLigado(cfgAtual, "recursoIngles"),
       },
-      pode: { admin: perfil === "Admin", professor: perfil === "Admin" || perfil === "Professor" },
+      areaPerfil: areaDoPerfil(perfil),
+      // admin = cadastros e movimentações (Admin, Secretaria e Diretor); config = só o Admin; professor = quem marca aulas, pontos, notas e avaliações
+      pode: {
+        admin: PERFIS_GESTAO.includes(perfil),
+        config: perfil === "Admin",
+        professor: PERFIS_GESTAO.includes(perfil) || PERFIS_INSTRUTOR.includes(perfil),
+      },
       entrar,
       sair,
       recarregar: () => carregar(true),
@@ -362,7 +378,7 @@ export function EscolaProvider({ children }) {
       salvarNotaModulo,
       salvarConfig,
     };
-  }, [state, entrar, sair, carregar, limparErro, salvar, excluir, marcarSessao, agendarReposicao, concluirModulo, resgatar, criarExperimental, movimentar, salvarAvaliacaoFinal, salvarNotaModulo, salvarConfig]);
+  }, [state, entrar, sair, carregar, limparErro, salvar, excluir, marcarSessao, agendarReposicao, concluirModulo, resgatar, criarExperimental, movimentar, salvarAvaliacaoFinal, salvarNotaModulo, salvarConfig, dadosVisiveis]);
 
   return <EscolaContext.Provider value={value}>{children}</EscolaContext.Provider>;
 }
