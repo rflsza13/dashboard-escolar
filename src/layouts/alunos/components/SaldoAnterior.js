@@ -8,7 +8,7 @@ import VuiButton from "components/VuiButton";
 import VuiInput from "components/VuiInput";
 
 import { useEscola } from "context/escola";
-import { corValida } from "utils/escola";
+import { DESCRICAO_PONTOS_ANTERIOR, corValida, hojeIso } from "utils/escola";
 
 const CAMPOS = [
   { chave: "presencas", rotulo: "Presenças" },
@@ -116,8 +116,73 @@ function Bloco({ item }) {
   );
 }
 
+// Pontos que o aluno já tinha no sistema anterior: viram um lançamento manual no saldo de pontos (um por aluno)
+function PontosAnteriores({ alunoId }) {
+  const { dados, salvar, excluir, user, pode } = useEscola();
+  const existente = (dados.pontos || []).find((p) => p.alunoId === alunoId && p.tipo === "Ganho (manual)" && p.descricao === DESCRICAO_PONTOS_ANTERIOR);
+  const origem = existente ? String(Number(existente.pontos) || 0) : "0";
+  const [valor, setValor] = useState(origem);
+  const [ocupado, setOcupado] = useState(false);
+  const [msg, setMsg] = useState("");
+
+  useEffect(() => {
+    setValor(origem);
+  }, [origem, alunoId]);
+
+  const alterado = inteiro(valor) !== inteiro(origem);
+
+  const gravar = async () => {
+    setOcupado(true);
+    const n = inteiro(valor);
+    let ok = true;
+    if (n > 0) {
+      ok = !!(await salvar("Pontos", {
+        id: existente ? existente.id : undefined,
+        data: existente ? existente.data : hojeIso(),
+        alunoId,
+        tipo: "Ganho (manual)",
+        pontos: n,
+        descricao: DESCRICAO_PONTOS_ANTERIOR,
+        moduloId: "",
+        registradoPor: user ? user.email : "",
+      }));
+    } else if (existente) {
+      ok = !!(await excluir("Pontos", existente.id));
+    }
+    setOcupado(false);
+    setMsg(ok ? "Pontos salvos." : "");
+  };
+
+  return (
+    <VuiBox sx={{ p: "14px 16px", borderRadius: "16px", background: "rgba(255,255,255,0.04)", borderLeft: "4px solid #01B574", mb: 2 }}>
+      <VuiTypography variant="button" color="white" fontWeight="bold" sx={{ display: "block", mb: "4px" }}>
+        Pontos do aluno
+      </VuiTypography>
+      <VuiTypography variant="caption" color="text" sx={{ display: "block", mb: "12px" }}>
+        Entram no saldo de pontos do aluno (Pontos e prêmios) como um lançamento manual. Valem para o aluno todo, não por curso.
+      </VuiTypography>
+      <VuiBox display="flex" flexWrap="wrap" alignItems="flex-end" gap="24px">
+        <Contador rotulo="Pontos" valor={valor} desabilitado={!pode.professor || ocupado} onChange={(novo) => { setValor(novo); setMsg(""); }} />
+        {pode.professor && (
+          <VuiBox display="flex" alignItems="center" gap="12px">
+            <VuiButton color="info" variant="contained" disabled={!alterado || ocupado} onClick={gravar}>
+              {ocupado ? "Salvando…" : "Salvar pontos"}
+            </VuiButton>
+            {msg && (
+              <VuiTypography variant="caption" color="success">
+                {msg}
+              </VuiTypography>
+            )}
+          </VuiBox>
+        )}
+      </VuiBox>
+    </VuiBox>
+  );
+}
+
 // Só aparece quando o interruptor "Saldo do sistema anterior" está ligado em Configurações
-function SaldoAnterior({ matriculas }) {
+function SaldoAnterior({ matriculas, alunoId }) {
+  const { recursos } = useEscola();
   if (!matriculas.length) return null;
   return (
     <Card sx={{ mb: 3 }}>
@@ -128,6 +193,7 @@ function SaldoAnterior({ matriculas }) {
         Para alunos que vieram do sistema antigo: lance aqui o que eles já tinham. Os valores são somados às presenças e faltas registradas no sistema novo,
         e as reposições pendentes entram na conta de reposições do aluno. Use − e + ou digite o número. Quando terminar, desligue este bloco em Configurações.
       </VuiTypography>
+      {recursos.pontos && alunoId && <PontosAnteriores alunoId={alunoId} />}
       {matriculas.map((item) => (
         <Bloco key={item.matricula.id} item={item} />
       ))}

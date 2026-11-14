@@ -188,7 +188,7 @@ function FichaAluno() {
           </Grid>
         </VuiBox>
 
-        {recursos.migracao && pode.professor && <SaldoAnterior matriculas={r.matriculas} />}
+        {recursos.migracao && pode.professor && <SaldoAnterior matriculas={r.matriculas} alunoId={id} />}
 
         {r.matriculas.length === 0 && (
           <Card sx={{ mb: 3 }}>

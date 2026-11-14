@@ -23,7 +23,7 @@ Painel de gestão para escolas de **programação, robótica e inglês**: grade 
 
 **Dia a dia**
 - **Dashboard** com relógio, aulas do dia por horário (mostrando só o que ainda falta registrar), presenças e faltas de hoje, alunos que mais faltam, **alunos em risco de evasão** e professores do dia.
-- **Horário das aulas** em grade semanal de segunda a sábado, com os intervalos da escola (aulas de 1h30 e experimentais de 1h). Seletor entre **Programação / Robótica** e **Inglês**, com cores por tipo de curso, por modalidade online, por reposição e por aula experimental. Presença, falta e reposição são marcadas direto na grade.
+- **Horário das aulas** em grade semanal de segunda a sábado, com os intervalos da escola (aulas de 1h30 e experimentais de 1h). Seletor entre **Programação / Robótica** e **Inglês**, com cores por tipo de curso, por modalidade online, por reposição e por aula experimental. Presença, falta e reposição são marcadas direto na grade, e uma **barra colorida no canto direito de cada card** mostra a situação (verde = presente, vermelha = falta, cinza = pendente).
 - **Aulas avulsas, de reposição e experimentais** pelo menu Nova aula (a reposição já liga à falta que está sendo reposta), com o professor responsável pela experimental. Uma aula pode ser **cancelada** só naquele dia (e restaurada depois) ou **apagada** da grade.
 - **Feriados e férias**: os feriados nacionais são identificados sozinhos e as aulas regulares desses dias saem da grade. Feriados estaduais e municipais, recessos, exceções (dia com aula em feriado) e **períodos de férias** são cadastrados em Configurações e aparecem marcados no cabeçalho da grade.
 - **Atualização automática** dos dados a cada 2 minutos, para vários professores usarem ao mesmo tempo.
@@ -31,7 +31,7 @@ Painel de gestão para escolas de **programação, robótica e inglês**: grade 
 **Alunos e cursos**
 - **Cadastro de aluno já na grade**, com um ou mais cursos e horários, e **ficha do aluno** com presença, faltas, reposições pendentes, módulo atual, gráficos de acompanhamento e pontos.
 - **Cursos e módulos**, com **fases** (por exemplo nos cursos de robótica, em que cada fase tem vários módulos). Tipos de curso: Programação, Robótica 1, Robótica 2 e Inglês.
-- **Saldo do sistema anterior**: contadores de presenças, faltas e reposições pendentes para quem veio de outro sistema. O bloco fica oculto e só aparece ao ligar o interruptor em Configurações; depois da migração, basta desligar.
+- **Saldo do sistema anterior**: contadores de presenças, faltas e reposições pendentes, e os **pontos** do aluno, para quem veio de outro sistema. O bloco fica oculto e só aparece ao ligar o interruptor em Configurações; depois da migração, basta desligar.
 - **Saída, trancamento e reativação** de matrículas, com motivo e **histórico de movimentações**.
 - **Notas por módulo** (ao concluir o módulo ou depois, na ficha), **avaliação final do curso** (conceito, nota opcional e comentário) e **boletim** do aluno, com a nota de cada módulo e a média, para imprimir ou salvar em PDF.
 - **Alertas de risco de evasão**: faltas seguidas ou reposições pendentes acima do limite que você define.

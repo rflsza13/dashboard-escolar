@@ -20,7 +20,7 @@ const routes = [
   { type: "hidden", name: "Boletim do aluno", key: "alunos-boletim", route: "/alunos/:id/boletim", component: Boletim },
   { type: "hidden", name: "Ficha do aluno", key: "alunos-ficha", route: "/alunos/:id", component: FichaAluno },
   { type: "collapse", name: "Cursos e turmas", key: "cursos", route: "/cursos", icon: icone(IoLibrary), component: Cursos, noCollapse: true },
-  { type: "collapse", name: "Pontos e prêmios", key: "pontos", route: "/pontos", icon: icone(IoTrophy), component: Pontos, noCollapse: true, recurso: "pontos" },
+  { type: "collapse", name: "BuddyCoins", key: "pontos", route: "/pontos", icon: icone(IoTrophy), component: Pontos, noCollapse: true, recurso: "pontos" },
   { type: "collapse", name: "Configurações", key: "configuracoes", route: "/configuracoes", icon: icone(IoSettings), component: Configuracoes, noCollapse: true, soAdmin: true },
 ];
 

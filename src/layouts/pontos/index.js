@@ -112,7 +112,7 @@ function Pontos() {
         <VuiBox display="flex" flexWrap="wrap" justifyContent="space-between" alignItems="center" gap="16px" mb={3}>
           <VuiBox>
             <VuiTypography variant="h4" color="white" fontWeight="bold">
-              Pontos e prêmios
+              BuddyCoins
             </VuiTypography>
             <VuiTypography variant="button" color="text" fontWeight="regular">
               Saldo de todos os alunos, histórico de lançamentos e catálogo de prêmios.

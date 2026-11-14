@@ -710,3 +710,22 @@ export function apenasArea(dados, area) {
     escala: (dados.escala || []).filter((b) => !b.cursoId || b.cursoId === `${PREFIXO_AREA}${area}` || idsCurso.has(b.cursoId)),
   };
 }
+
+// Mistura duas cores (fator 1 = só a cor, 0 = só a base): dá um tom sólido (sem transparência) da cor sobre o fundo escuro
+export function misturarCor(cor, base, fator) {
+  const partes = (h) => [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16));
+  const [r1, g1, b1] = partes(corValida(cor));
+  const [r2, g2, b2] = partes(base);
+  const m = (a, b) => Math.round(b + (a - b) * fator);
+  return `#${[m(r1, r2), m(g1, g2), m(b1, b2)].map((v) => v.toString(16).padStart(2, "0")).join("")}`;
+}
+
+// Barra de situação da aula no canto do card: verde (presença), vermelha (falta) e cinza (pendente, inclusive reposição ainda não realizada)
+export function barraDoStatus(status) {
+  if (status === "Presente" || status === "Reposição realizada") return { cor: "#01B574", rotulo: "Presente", marcada: true };
+  if (status === "Falta") return { cor: "#E31A1A", rotulo: "Falta", marcada: true };
+  return { cor: "rgba(255, 255, 255, 0.25)", rotulo: "Pendente", marcada: false };
+}
+
+// descrição do lançamento de pontos feito na migração (um por aluno)
+export const DESCRICAO_PONTOS_ANTERIOR = "Pontos do sistema anterior";

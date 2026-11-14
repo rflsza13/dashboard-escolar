@@ -4,16 +4,10 @@ import PropTypes from "prop-types";
 import VuiBox from "components/VuiBox";
 import VuiTypography from "components/VuiTypography";
 
-import { IoCheckmarkCircle, IoCloseCircle, IoTimeOutline } from "react-icons/io5";
+import { DIAS_GRADE, INTERVALOS_GRADE, barraDoStatus, faixaDaAula, fimDaAula, formatarDataCurta, hojeIso, misturarCor } from "utils/escola";
 
-import { DIAS_GRADE, INTERVALOS_GRADE, faixaDaAula, fimDaAula, formatarDataCurta, hojeIso } from "utils/escola";
-
-function IconeStatus({ status }) {
-  if (status === "Presente" || status === "Reposição realizada") return <IoCheckmarkCircle size="16px" color="#01B574" />;
-  if (status === "Falta") return <IoCloseCircle size="16px" color="#E31A1A" />;
-  return <IoTimeOutline size="16px" color="#A0AEC0" />;
-}
-IconeStatus.propTypes = { status: PropTypes.string.isRequired };
+// fundo escuro do card, sobre o qual a cor do curso é misturada (sólido, sem transparência)
+const FUNDO_CARD = "#150a0b";
 
 function GradeSemanal({ dias, sessoes, onSelecionar, feriados }) {
   const hoje = hojeIso();
@@ -57,31 +51,39 @@ function GradeSemanal({ dias, sessoes, onSelecionar, feriados }) {
             </VuiBox>
             {dias.map((d, i) => (
               <VuiBox key={`${d}|${faixa}`} sx={{ borderTop: borda, borderLeft: borda, p: "4px", minHeight: 70, background: feriados[i] ? "rgba(245,165,36,0.07)" : d === hoje ? "rgba(227,36,43,0.07)" : "transparent" }}>
-                {(porCelula[`${d}|${faixa}`] || []).map((s) => (
+                {(porCelula[`${d}|${faixa}`] || []).map((s) => {
+                  const barra = barraDoStatus(s.status);
+                  return (
                   <VuiBox
                     key={s.chave}
                     onClick={() => onSelecionar(s)}
-                    sx={{ cursor: "pointer", mb: "4px", p: "5px 8px", borderRadius: "10px", borderLeft: `4px solid ${s.cor}`, background: `${s.cor}26`, "&:hover": { background: `${s.cor}40` } }}
+                    title={barra.rotulo}
+                    sx={{
+                      position: "relative",
+                      overflow: "hidden",
+                      cursor: "pointer",
+                      mb: "4px",
+                      p: "5px 18px 5px 8px",
+                      borderRadius: "10px",
+                      borderLeft: `4px solid ${s.cor}`,
+                      background: misturarCor(s.cor, FUNDO_CARD, 0.34),
+                      "&:hover": { background: misturarCor(s.cor, FUNDO_CARD, 0.46) },
+                    }}
                   >
-                    <VuiBox display="flex" justifyContent="space-between" alignItems="center" gap="6px">
-                      <VuiTypography variant="caption" color="white" fontWeight="bold" sx={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                        {s.hora}–{fimDaAula(s.hora, s.duracao)} · {s.aluno}
-                      </VuiTypography>
-                      <VuiBox sx={{ flexShrink: 0, display: "flex" }}>
-                        <IconeStatus status={s.status} />
-                      </VuiBox>
-                    </VuiBox>
-                    <VuiTypography variant="caption" color="text" sx={{ display: "block", lineHeight: 1.25 }}>
-                      {s.curso}
-                      {s.tags.length ? ` · ${s.tags.join(" · ")}` : ""}
+                    {/* barra de situação no canto direito: verde = presente, vermelha = falta, cinza = pendente */}
+                    <VuiBox
+                      data-status={barra.rotulo}
+                      sx={{ position: "absolute", top: 0, right: 0, bottom: 0, width: barra.marcada ? "11px" : "8px", background: barra.cor, boxShadow: barra.marcada ? `0 0 10px ${barra.cor}` : "none" }}
+                    />
+                    <VuiTypography variant="caption" color="white" fontWeight="bold" sx={{ display: "block", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", lineHeight: 1.2 }}>
+                      {s.aluno}
                     </VuiTypography>
-                    {s.professores.length > 0 && (
-                      <VuiTypography variant="caption" color="white" sx={{ display: "block", lineHeight: 1.25, opacity: 0.75 }}>
-                        Prof.: {s.professores.join(", ")}
-                      </VuiTypography>
-                    )}
+                    <VuiTypography variant="caption" color="text" sx={{ display: "block", fontSize: "10.5px", lineHeight: 1.2, mt: "2px" }}>
+                      {s.hora}–{fimDaAula(s.hora, s.duracao)}
+                    </VuiTypography>
                   </VuiBox>
-                ))}
+                  );
+                })}
               </VuiBox>
             ))}
           </Fragment>
