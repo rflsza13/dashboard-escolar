@@ -8,8 +8,8 @@ const themeConfig = {
       "radial-gradient(1400px 900px at 80% 0%, rgba(227, 36, 43, 0.26), transparent 65%), radial-gradient(1100px 750px at 10% 90%, rgba(227, 36, 43, 0.14), transparent 65%), radial-gradient(900px 700px at 45% 40%, rgba(227, 36, 43, 0.07), transparent 70%), #08080b",
   },
   cards: {
-    background: "rgba(18, 18, 24, 0.78)",
-    backdropFilter: "blur(120px)",
+    background: "rgba(18, 18, 24, 0.82)",
+    backdropFilter: "blur(20px)",
     borderColor: "rgba(255, 255, 255, 0.10)",
   },
   fonts: {
