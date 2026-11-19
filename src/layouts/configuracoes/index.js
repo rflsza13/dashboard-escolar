@@ -29,7 +29,7 @@ const recursosDe = (cfg) => RECURSOS.reduce((o, r) => ({ ...o, [r.chave]: recurs
 const CAMPOS = [
   { grupo: "Geral", itens: [
     { chave: "nomeEscola", rotulo: "Nome da escola", ajuda: "Aparece no menu lateral do dashboard.", tipo: "texto" },
-    { chave: "pontosPadrao", rotulo: "Pontos padrão por módulo", ajuda: "Usado quando o módulo não tem pontuação própria.", tipo: "inteiro", min: 0 },
+    { chave: "pontosPadrao", rotulo: "BuddyCoins padrão por módulo", ajuda: "Usado quando o módulo não tem pontuação própria.", tipo: "inteiro", min: 0 },
     { chave: "rankingDias", rotulo: "Ranking de faltas: janela (dias)", ajuda: "Período considerado no ranking de alunos que mais faltam.", tipo: "inteiro", min: 1 },
   ] },
   { grupo: "Alertas de evasão", itens: [

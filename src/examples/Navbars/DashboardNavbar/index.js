@@ -49,11 +49,17 @@ function DashboardNavbar({ absolute, light, isMini }) {
       setNavbarType("static");
     }
 
+    let ultimoTransparente = (fixedNavbar && window.scrollY === 0) || !fixedNavbar;
+
     function handleTransparentNavbar() {
-      setTransparentNavbar(dispatch, (fixedNavbar && window.scrollY === 0) || !fixedNavbar);
+      const novoValor = (fixedNavbar && window.scrollY === 0) || !fixedNavbar;
+      if (novoValor !== ultimoTransparente) {
+        ultimoTransparente = novoValor;
+        setTransparentNavbar(dispatch, novoValor);
+      }
     }
 
-    window.addEventListener("scroll", handleTransparentNavbar);
+    window.addEventListener("scroll", handleTransparentNavbar, { passive: true });
     handleTransparentNavbar();
 
     return () => window.removeEventListener("scroll", handleTransparentNavbar);

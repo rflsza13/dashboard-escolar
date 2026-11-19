@@ -41,7 +41,7 @@ export const BONUS_BOM_COMPORTAMENTO = 10;
 
 // Funcionalidades que podem ser ligadas/desligadas em Configurações (gravadas na aba Config como Sim/Não)
 export const RECURSOS = [
-  { chave: "recursoPontos", rotulo: "Pontos e recompensas", ajuda: "Menu Pontos e prêmios, pontos nas fichas, nos módulos e na conclusão de módulo." },
+  { chave: "recursoPontos", rotulo: "BuddyCoins e recompensas", ajuda: "Menu BuddyCoins e prêmios, pontos nas fichas, nos módulos e na conclusão de módulo." },
   { chave: "recursoProfessores", rotulo: "Professores e escala", ajuda: "Menu Professores, nomes dos professores nas aulas e escala do dia no dashboard." },
   { chave: "recursoExperimentais", rotulo: "Aulas experimentais", ajuda: "Opção de cadastrar aula experimental em Nova aula." },
   { chave: "recursoAvaliacoes", rotulo: "Avaliações (notas e avaliação final)", ajuda: "Nota de cada módulo, avaliação final do curso, ficha do aluno e boletim." },
@@ -728,4 +728,254 @@ export function barraDoStatus(status) {
 }
 
 // descrição do lançamento de pontos feito na migração (um por aluno)
-export const DESCRICAO_PONTOS_ANTERIOR = "Pontos do sistema anterior";
+export const DESCRICAO_PONTOS_ANTERIOR = "BuddyCoins do sistema anterior";
+
+/* ---------- Métricas e Relatório Geral ---------- */
+
+export function calcularIdade(dataNasc) {
+  if (!dataNasc || !/^\d{4}-\d{2}-\d{2}$/.test(dataNasc)) return null;
+  const hoje = new Date();
+  const [ano, mes, dia] = dataNasc.split("-").map(Number);
+  let idade = hoje.getFullYear() - ano;
+  const m = hoje.getMonth() + 1 - mes;
+  if (m < 0 || (m === 0 && hoje.getDate() < dia)) {
+    idade -= 1;
+  }
+  return idade >= 0 ? idade : null;
+}
+
+export function faixaEtaria(idade) {
+  if (idade === null || idade === undefined) return "Não informado";
+  if (idade <= 9) return "Kids (6–9 anos)";
+  if (idade <= 14) return "Teens (10–14 anos)";
+  if (idade <= 17) return "Jovens (15–17 anos)";
+  return "Adultos (18+ anos)";
+}
+
+export function deduzirGenero(aluno) {
+  if (aluno && aluno.genero && aluno.genero !== "Outro" && aluno.genero !== "Não informado") {
+    return aluno.genero;
+  }
+  const nome = (aluno && aluno.nome ? aluno.nome : "").trim();
+  if (!nome) return "Não informado";
+  const primeiro = nome.split(" ")[0].toLowerCase();
+  const nomesFem = new Set([
+    "ana", "beatriz", "laura", "alice", "sophia", "sofia", "manuela", "isabella", "isabel", "helena", "valentina",
+    "julia", "livia", "lorena", "giovanna", "maria", "mariana", "carolina", "clara", "luiza", "luisa",
+    "leticia", "yasmin", "gabriela", "rebeca", "amanda", "larissa", "isadora", "melissa", "camila", "marina",
+    "juliana", "rafaela", "fernanda", "bruna", "bianca", "cecilia", "elisa", "heloisa", "lara", "emanuelly", "luana"
+  ]);
+  const nomesMasc = new Set([
+    "miguel", "arthur", "davi", "gabriel", "bernardo", "lucas", "matheus", "pedro", "heitor", "rafael",
+    "enzo", "nicolas", "lorenzo", "guilherme", "samuel", "theo", "felipe", "gustavo", "henrique", "joao",
+    "vitor", "victor", "leonardo", "eduardo", "caio", "daniel", "benjamin", "vinicius", "bryan", "ian",
+    "lucca", "luca", "thiago", "tiago", "rodrigo", "marcos", "andre", "diego", "bruno"
+  ]);
+  if (nomesFem.has(primeiro)) return "Feminino";
+  if (nomesMasc.has(primeiro)) return "Masculino";
+  if (primeiro.endsWith("a") && !["luca", "lucca"].includes(primeiro)) return "Feminino";
+  if (primeiro.endsWith("o") || primeiro.endsWith("or") || primeiro.endsWith("el") || primeiro.endsWith("os") || primeiro.endsWith("son")) return "Masculino";
+  return "Não informado";
+}
+
+export function calcularMetricasGerais(dados, diasFiltro = null) {
+  const hoje = hojeIso();
+  const dataCorte = diasFiltro ? somarDias(hoje, -diasFiltro) : null;
+
+  // 1. Alunos e Matrículas
+  const todosAlunos = dados.alunos || [];
+  const matriculas = dados.matriculas || [];
+  const aulas = dados.aulas || [];
+  const cursos = dados.cursos || [];
+  const avaliacoes = dados.avaliacoes || [];
+  const progresso = dados.progresso || [];
+
+  const alunosAtivos = todosAlunos.filter((a) => a.ativo === "Sim");
+  const alunosInativos = todosAlunos.filter((a) => a.ativo === "Não");
+
+  const matAtivas = matriculas.filter((m) => m.status === "Ativa");
+  const matInativas = matriculas.filter((m) => m.status === "Inativa" || m.status === "Cancelada");
+  const totalMat = matAtivas.length + matInativas.length;
+  const taxaEvasao = totalMat > 0 ? (matInativas.length / totalMat) * 100 : 0;
+  const taxaRetencao = 100 - taxaEvasao;
+
+  // 2. Tempo de Permanência (em meses) dos alunos ativos
+  let somaMeses = 0;
+  let contMeses = 0;
+  const faixasPermanencia = {
+    "< 3 meses": 0,
+    "3 a 6 meses": 0,
+    "6 a 12 meses": 0,
+    "1 a 2 anos": 0,
+    "2+ anos": 0,
+  };
+
+  matAtivas.forEach((m) => {
+    if (!m.dataInicio) return;
+    const ini = dataDeIso(m.dataInicio);
+    const dias = Math.max(0, Math.floor((dataDeIso(hoje) - ini) / (1000 * 60 * 60 * 24)));
+    const meses = Math.round((dias / 30.4) * 10) / 10;
+    somaMeses += meses;
+    contMeses += 1;
+
+    if (meses < 3) faixasPermanencia["< 3 meses"] += 1;
+    else if (meses <= 6) faixasPermanencia["3 a 6 meses"] += 1;
+    else if (meses <= 12) faixasPermanencia["6 a 12 meses"] += 1;
+    else if (meses <= 24) faixasPermanencia["1 a 2 anos"] += 1;
+    else faixasPermanencia["2+ anos"] += 1;
+  });
+
+  const permanenciaMediaMeses = contMeses > 0 ? Math.round((somaMeses / contMeses) * 10) / 10 : 0;
+
+  // 3. Distribuição por Faixa Etária (alunos ativos)
+  const faixasEtarias = {
+    "Kids (6–9 anos)": 0,
+    "Teens (10–14 anos)": 0,
+    "Jovens (15–17 anos)": 0,
+    "Adultos (18+ anos)": 0,
+    "Não informado": 0,
+  };
+
+  // 3.1 Distribuição por Gênero (Meninos e Meninas)
+  let meninos = 0;
+  let meninas = 0;
+  let generoNaoInformado = 0;
+
+  alunosAtivos.forEach((a) => {
+    const idade = calcularIdade(a.dataNascimento);
+    const faixa = faixaEtaria(idade);
+    faixasEtarias[faixa] = (faixasEtarias[faixa] || 0) + 1;
+
+    const g = deduzirGenero(a);
+    if (g === "Masculino") meninos += 1;
+    else if (g === "Feminino") meninas += 1;
+    else generoNaoInformado += 1;
+  });
+
+  const distribuicaoGenero = {
+    meninos,
+    meninas,
+    naoInformado: generoNaoInformado,
+    pctMeninos: alunosAtivos.length > 0 ? Math.round((meninos / alunosAtivos.length) * 100) : 0,
+    pctMeninas: alunosAtivos.length > 0 ? Math.round((meninas / alunosAtivos.length) * 100) : 0,
+    pctNaoInformado: alunosAtivos.length > 0 ? Math.round((generoNaoInformado / alunosAtivos.length) * 100) : 0,
+  };
+
+  // 4. Taxa de Presença (Frequência) no período
+  const aulasNoPeriodo = dataCorte ? aulas.filter((a) => a.data >= dataCorte && a.data <= hoje) : aulas.filter((a) => a.data <= hoje);
+
+  let presencas = 0;
+  let faltas = 0;
+  aulasNoPeriodo.forEach((a) => {
+    if (ehPresenca(a.status)) presencas += 1;
+    else if (ehFalta(a.status)) faltas += 1;
+  });
+
+  const totalMarcadas = presencas + faltas;
+  const taxaPresenca = totalMarcadas > 0 ? Math.round((presencas / totalMarcadas) * 1000) / 10 : 100;
+
+  // 5. Performance por Curso
+  const performanceCursos = cursos.map((c) => {
+    const matsDoCurso = matAtivas.filter((m) => m.cursoId === c.id);
+    const matIds = new Set(matriculas.filter((m) => m.cursoId === c.id).map((m) => m.id));
+
+    // Aulas do curso no período
+    let cPres = 0;
+    let cFalt = 0;
+    aulasNoPeriodo.forEach((a) => {
+      if (matIds.has(a.matriculaId)) {
+        if (ehPresenca(a.status)) cPres += 1;
+        else if (ehFalta(a.status)) cFalt += 1;
+      }
+    });
+    const cMarcadas = cPres + cFalt;
+    const freq = cMarcadas > 0 ? Math.round((cPres / cMarcadas) * 1000) / 10 : 100;
+
+    // Avaliações do curso
+    const avalsCurso = avaliacoes.filter((av) => matIds.has(av.matriculaId) && av.nota !== "" && !isNaN(Number(av.nota)));
+    const mediaNota = avalsCurso.length > 0 ? Math.round((avalsCurso.reduce((s, av) => s + Number(av.nota), 0) / avalsCurso.length) * 10) / 10 : null;
+
+    // Módulos concluídos
+    const concluidos = progresso.filter((p) => matIds.has(p.matriculaId) && p.concluido && (!dataCorte || (p.dataConclusao && p.dataConclusao >= dataCorte))).length;
+
+    return {
+      cursoId: c.id,
+      nome: c.nome,
+      cor: c.cor || "#2CD9FF",
+      alunosAtivos: matsDoCurso.length,
+      frequencia: freq,
+      mediaNota,
+      modulosConcluidos: concluidos,
+    };
+  });
+
+  // 6. Conversão de Aulas Experimentais
+  const expNoPeriodo = dataCorte
+    ? aulas.filter((a) => a.tipo === "Experimental" && a.data >= dataCorte && a.data <= hoje)
+    : aulas.filter((a) => a.tipo === "Experimental" && a.data <= hoje);
+
+  const totalExp = expNoPeriodo.length;
+  // Conta quantos visitantes viraram matriculados ativos
+  const matriculadosExp = expNoPeriodo.filter((a) => {
+    const al = todosAlunos.find((aluno) => aluno.id === a.alunoId);
+    return al && al.ativo === "Sim" && matriculas.some((m) => m.alunoId === al.id && m.status === "Ativa");
+  }).length;
+  const taxaConversaoExp = totalExp > 0 ? Math.round((matriculadosExp / totalExp) * 100) : 0;
+
+  // 7. Alunos em Risco de Evasão (ativos com 2+ faltas recentes sem reposição)
+  const faltasRecentesSemRep = {};
+  const comRep = new Set(aulas.filter((a) => a.reposicaoDe).map((a) => a.reposicaoDe));
+  const dataCorteRisco = somarDias(hoje, -60);
+
+  aulas.forEach((a) => {
+    if (a.data >= dataCorteRisco && a.data <= hoje && ehFalta(a.status) && !comRep.has(a.id)) {
+      const mat = matriculas.find((m) => m.id === a.matriculaId);
+      if (mat && mat.status === "Ativa") {
+        const alId = mat.alunoId;
+        if (!faltasRecentesSemRep[alId]) {
+          faltasRecentesSemRep[alId] = { alunoId: alId, faltas: 0, ultimaFalta: a.data, cursoId: mat.cursoId };
+        }
+        faltasRecentesSemRep[alId].faltas += 1;
+        if (a.data > faltasRecentesSemRep[alId].ultimaFalta) {
+          faltasRecentesSemRep[alId].ultimaFalta = a.data;
+        }
+      }
+    }
+  });
+
+  const alunosRisco = Object.values(faltasRecentesSemRep)
+    .filter((r) => r.faltas >= 2)
+    .map((r) => {
+      const al = todosAlunos.find((a) => a.id === r.alunoId);
+      const c = cursos.find((cr) => cr.id === r.cursoId);
+      return {
+        alunoId: r.alunoId,
+        nome: al ? al.nome : "Desconhecido",
+        contato: al ? al.contato || al.responsavel || "" : "",
+        curso: c ? c.nome : "",
+        faltas: r.faltas,
+        ultimaFalta: r.ultimaFalta,
+      };
+    })
+    .sort((a, b) => b.faltas - a.faltas);
+
+  return {
+    alunosAtivos: alunosAtivos.length,
+    alunosInativos: alunosInativos.length,
+    taxaRetencao: Math.round(taxaRetencao * 10) / 10,
+    taxaEvasao: Math.round(taxaEvasao * 10) / 10,
+    permanenciaMediaMeses,
+    faixasPermanencia,
+    faixasEtarias,
+    distribuicaoGenero,
+    taxaPresenca,
+    totalPresencas: presencas,
+    totalFaltas: faltas,
+    totalAulasMarcadas: totalMarcadas,
+    performanceCursos,
+    totalExp,
+    matriculadosExp,
+    taxaConversaoExp,
+    alunosRisco,
+  };
+}

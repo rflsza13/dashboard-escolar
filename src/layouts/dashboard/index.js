@@ -43,6 +43,11 @@ function Dashboard() {
   const semReposicao = useMemo(() => faltasSemReposicao(dados, hoje, 60), [dados, hoje]);
   const equipeHoje = useMemo(() => escalaDoDia(dados, hoje), [dados, hoje]);
   const emRisco = useMemo(() => (recursos.alertas ? alertasDeRisco(dados, cfg) : []), [dados, cfg, recursos.alertas]);
+  // Na Home: apenas casos realmente urgentes (3 ou mais faltas seguidas consecutivas)
+  const emRiscoUrgente = useMemo(
+    () => emRisco.filter(({ motivos }) => motivos.some((m) => m.includes("faltas seguidas"))),
+    [emRisco]
+  );
 
   const presentesHoje = sessoesHoje.filter((s) => ehPresenca(s.status)).length;
   const faltasHoje = sessoesHoje.filter((s) => ehFalta(s.status)).length;
@@ -205,21 +210,21 @@ function Dashboard() {
                 </VuiBox>
               ))}
             </Card>
-            {recursos.alertas && (
-              <Card sx={{ borderLeft: "4px solid #F5A524" }}>
-                <VuiTypography variant="lg" color="white" fontWeight="bold" mb="4px">
-                  Alunos em risco
-                </VuiTypography>
-                <VuiTypography variant="button" color="text" fontWeight="regular" mb="16px" sx={{ display: "block" }}>
-                  {cfg.riscoFaltasSeguidas} faltas seguidas ou {cfg.riscoReposicoes} reposições pendentes
-                </VuiTypography>
-                {emRisco.length === 0 && (
-                  <VuiTypography variant="caption" color="text">
-                    Nenhum aluno em risco agora.
+            {recursos.alertas && emRiscoUrgente.length > 0 && (
+              <Card sx={{ borderLeft: "4px solid #E31A1A" }}>
+                <VuiBox display="flex" justifyContent="space-between" alignItems="center" mb="4px">
+                  <VuiTypography variant="lg" color="white" fontWeight="bold">
+                    Alunos em risco crítico
                   </VuiTypography>
-                )}
-                {emRisco.slice(0, 8).map(({ aluno, motivos }) => (
-                  <VuiBox key={aluno.id} onClick={() => history.push(`/alunos/${aluno.id}`)} sx={{ cursor: "pointer", mb: "10px", p: "8px 10px", borderRadius: "12px", background: "rgba(245,165,36,0.08)" }}>
+                  <VuiTypography variant="caption" sx={{ background: "rgba(227,36,43,0.18)", color: "#ff5a4f", px: 1.2, py: 0.3, borderRadius: "20px", fontWeight: "bold" }}>
+                    Urgente
+                  </VuiTypography>
+                </VuiBox>
+                <VuiTypography variant="button" color="text" fontWeight="regular" mb="16px" sx={{ display: "block" }}>
+                  Alunos com 3 ou mais faltas seguidas sem reposição
+                </VuiTypography>
+                {emRiscoUrgente.slice(0, 8).map(({ aluno, motivos }) => (
+                  <VuiBox key={aluno.id} onClick={() => history.push(`/alunos/${aluno.id}`)} sx={{ cursor: "pointer", mb: "10px", p: "8px 10px", borderRadius: "12px", background: "rgba(227,36,43,0.08)", "&:hover": { background: "rgba(227,36,43,0.16)" } }}>
                     <VuiTypography variant="button" color="white" fontWeight="medium" sx={{ display: "block" }}>
                       {aluno.nome}
                     </VuiTypography>
@@ -228,9 +233,9 @@ function Dashboard() {
                     </VuiTypography>
                   </VuiBox>
                 ))}
-                {emRisco.length > 8 && (
+                {emRiscoUrgente.length > 8 && (
                   <VuiTypography variant="caption" color="text">
-                    + {emRisco.length - 8} aluno(s). Veja na lista de Alunos (marca RISCO).
+                    + {emRiscoUrgente.length - 8} aluno(s). Veja na página de Relatórios.
                   </VuiTypography>
                 )}
               </Card>

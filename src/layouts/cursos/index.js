@@ -49,7 +49,7 @@ function Cursos() {
   const cursosCor = useMemo(() => cursosComCor(dados.cursos), [dados.cursos]);
   const contagem = (c) => dados.matriculas.filter((m) => m.cursoId === c.id && m.status === "Ativa").length;
 
-  const colMod = [{ nome: "#" }, { nome: "Módulo" }, ...(fases.length ? [{ nome: "Fase" }] : []), ...(recursos.pontos ? [{ nome: "Pontos", align: "right" }] : [])];
+  const colMod = [{ nome: "#" }, { nome: "Módulo" }, ...(fases.length ? [{ nome: "Fase" }] : []), ...(recursos.pontos ? [{ nome: "BuddyCoins", align: "right" }] : [])];
   const linhasMod = modulosVisiveis.map((m) => ({
     chave: m.id,
     onClick: pode.admin ? () => setModuloDlg({ open: true, modulo: m }) : undefined,
@@ -195,7 +195,7 @@ function Cursos() {
         descricao={`${recursos.pontos ? "Deixe os pontos em branco para usar o padrão definido na aba Config. " : ""}Fase é opcional: módulos com o mesmo nome de fase ficam agrupados (ex.: Fase 1). A ordem continua única no curso todo.`}
         campos={[
           { chave: "ordem", rotulo: "Ordem (1, 2, 3…)", tipo: "numero", min: 1, inteira: true, obrigatorio: true },
-          ...(recursos.pontos ? [{ chave: "pontos", rotulo: "Pontos ao concluir (opcional)", tipo: "numero", min: 0 }] : []),
+          ...(recursos.pontos ? [{ chave: "pontos", rotulo: "BuddyCoins ao concluir (opcional)", tipo: "numero", min: 0 }] : []),
           { chave: "fase", rotulo: "Fase (opcional)", sugestoes: fases },
           { chave: "nome", rotulo: "Nome do módulo", obrigatorio: true, cheia: true },
         ]}

@@ -6,9 +6,10 @@ import FichaAluno from "layouts/alunos/ficha";
 import Boletim from "layouts/alunos/boletim";
 import Cursos from "layouts/cursos";
 import Pontos from "layouts/pontos";
+import Relatorios from "layouts/relatorios";
 import Configuracoes from "layouts/configuracoes";
 
-import { IoHome, IoCalendar, IoIdCard, IoPeople, IoLibrary, IoTrophy, IoSettings } from "react-icons/io5";
+import { IoHome, IoCalendar, IoIdCard, IoPeople, IoLibrary, IoTrophy, IoSettings, IoStatsChart } from "react-icons/io5";
 
 const icone = (Comp) => <Comp size="15px" color="inherit" />;
 
@@ -21,6 +22,7 @@ const routes = [
   { type: "hidden", name: "Ficha do aluno", key: "alunos-ficha", route: "/alunos/:id", component: FichaAluno },
   { type: "collapse", name: "Cursos e turmas", key: "cursos", route: "/cursos", icon: icone(IoLibrary), component: Cursos, noCollapse: true },
   { type: "collapse", name: "BuddyCoins", key: "pontos", route: "/pontos", icon: icone(IoTrophy), component: Pontos, noCollapse: true, recurso: "pontos" },
+  { type: "collapse", name: "Relatórios", key: "relatorios", route: "/relatorios", icon: icone(IoStatsChart), component: Relatorios, noCollapse: true, soAdmin: true },
   { type: "collapse", name: "Configurações", key: "configuracoes", route: "/configuracoes", icon: icone(IoSettings), component: Configuracoes, noCollapse: true, soAdmin: true },
 ];
 

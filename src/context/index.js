@@ -13,18 +13,23 @@ VisionUI.displayName = "VisionUIContext";
 function reducer(state, action) {
   switch (action.type) {
     case "MINI_SIDENAV": {
+      if (state.miniSidenav === action.value) return state;
       return { ...state, miniSidenav: action.value };
     }
     case "TRANSPARENT_SIDENAV": {
+      if (state.transparentSidenav === action.value) return state;
       return { ...state, transparentSidenav: action.value };
     }
     case "SIDENAV_COLOR": {
+      if (state.sidenavColor === action.value) return state;
       return { ...state, sidenavColor: action.value };
     }
     case "TRANSPARENT_NAVBAR": {
+      if (state.transparentNavbar === action.value) return state;
       return { ...state, transparentNavbar: action.value };
     }
     case "FIXED_NAVBAR": {
+      if (state.fixedNavbar === action.value) return state;
       return { ...state, fixedNavbar: action.value };
     }
     case "OPEN_CONFIGURATOR": {

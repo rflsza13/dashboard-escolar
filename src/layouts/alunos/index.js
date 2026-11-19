@@ -60,7 +60,7 @@ function Alunos() {
     );
   }, [todos, busca, cursoId, mostrar]);
 
-  const colunas = [{ nome: "Aluno" }, { nome: "Cursos e andamento" }, { nome: "Presença", align: "right" }, ...(recursos.pontos ? [{ nome: "Pontos", align: "right" }] : [])];
+  const colunas = [{ nome: "Aluno" }, { nome: "Cursos e andamento" }, { nome: "Presença", align: "right" }, ...(recursos.pontos ? [{ nome: "BuddyCoins", align: "right" }] : [])];
 
   const linhas = filtrados.slice(0, limite).map(({ aluno, r }) => ({
     chave: aluno.id,

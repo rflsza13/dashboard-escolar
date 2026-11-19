@@ -7,7 +7,7 @@ import { DEFAULT_CONFIG, PERFIS_GESTAO, PERFIS_INSTRUTOR, apenasArea, areaDoPerf
 const EscolaContext = createContext();
 EscolaContext.displayName = "EscolaContext";
 
-const CHAVE = { Alunos: "alunos", Professores: "professores", Escala: "escala", Cursos: "cursos", Modulos: "modulos", Matriculas: "matriculas", Aulas: "aulas", Progresso: "progresso", Pontos: "pontos", Premios: "premios", Migracao: "migracao", Movimentacoes: "movimentacoes", Avaliacoes: "avaliacoes", Feriados: "feriados", Ferias: "ferias" };
+const CHAVE = { Alunos: "alunos", Professores: "professores", Escala: "escala", Cursos: "cursos", Modulos: "modulos", Matriculas: "matriculas", Aulas: "aulas", Progresso: "progresso", Pontos: "BuddyCoins", Premios: "premios", Migracao: "migracao", Movimentacoes: "movimentacoes", Avaliacoes: "avaliacoes", Feriados: "feriados", Ferias: "ferias" };
 const PREFIXO = { Alunos: "A", Professores: "PRF", Escala: "ESC", Cursos: "C", Modulos: "MOD", Matriculas: "MAT", Aulas: "AUL", Progresso: "PRG", Pontos: "P", Premios: "PR", Migracao: "MIG", Movimentacoes: "MOV", Avaliacoes: "AVA", Feriados: "FER", Ferias: "FRS" };
 const VAZIO = { alunos: [], professores: [], escala: [], cursos: [], modulos: [], matriculas: [], aulas: [], progresso: [], pontos: [], premios: [], migracao: [], movimentacoes: [], avaliacoes: [], feriados: [], ferias: [], config: DEFAULT_CONFIG };
 

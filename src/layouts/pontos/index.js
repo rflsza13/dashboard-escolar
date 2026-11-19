@@ -64,7 +64,7 @@ function Pontos() {
 
   const podeApagar = (p) => pode.admin || (pode.professor && p.tipo === "Ganho (manual)");
   const apagar = (p) => {
-    if (window.confirm(`Excluir este lançamento (${p.descricao || p.tipo}, ${p.pontos} ponto(s))?`)) excluir("Pontos", p.id);
+    if (window.confirm(`Excluir este lançamento (${p.descricao || p.tipo}, ${p.pontos} ponto(s))?`)) excluir("BuddyCoins", p.id);
   };
 
   const alunosAtivos = dados.alunos.filter((a) => a.ativo !== "Não");
@@ -78,7 +78,7 @@ function Pontos() {
     celulas: [texto(String(i + 1)), texto(s.aluno.nome, "white"), texto(String(s.ganhos), "success"), texto(String(s.resgates)), texto(String(s.saldo), "white")],
   }));
 
-  const colHist = [{ nome: "Data" }, { nome: "Aluno" }, { nome: "Tipo" }, { nome: "Descrição" }, { nome: "Pontos", align: "right" }, { nome: "" }];
+  const colHist = [{ nome: "Data" }, { nome: "Aluno" }, { nome: "Tipo" }, { nome: "Descrição" }, { nome: "BuddyCoins", align: "right" }, { nome: "" }];
   const linhasHist = historico.slice(0, limite).map((p) => ({
     chave: p.id,
     celulas: [
@@ -200,14 +200,14 @@ function Pontos() {
       <FormDialog
         open={lancar}
         titulo="Lançar pontos"
-        descricao="Pontos extras, por exemplo por participação ou desempenho. Os pontos de módulo concluído entram sozinhos."
+        descricao="BuddyCoins extras, por exemplo por participação ou desempenho. Os pontos de módulo concluído entram sozinhos."
         campos={[
           { chave: "alunoId", rotulo: "Aluno", tipo: "select", obrigatorio: true, cheia: true, opcoes: alunosAtivos.map((a) => ({ valor: a.id, rotulo: a.nome })) },
-          { chave: "pontos", rotulo: "Pontos", tipo: "numero", min: 1, inteira: true, obrigatorio: true },
+          { chave: "pontos", rotulo: "BuddyCoins", tipo: "numero", min: 1, inteira: true, obrigatorio: true },
           { chave: "descricao", rotulo: "Motivo", obrigatorio: true, cheia: true },
         ]}
         onSalvar={async (v) =>
-          !!(await salvar("Pontos", { data: hojeIso(), alunoId: v.alunoId, tipo: "Ganho (manual)", pontos: v.pontos, descricao: v.descricao, moduloId: "", registradoPor: user ? user.email : "" }))
+          !!(await salvar("BuddyCoins", { data: hojeIso(), alunoId: v.alunoId, tipo: "Ganho (manual)", pontos: v.pontos, descricao: v.descricao, moduloId: "", registradoPor: user ? user.email : "" }))
         }
         onClose={() => setLancar(false)}
       />

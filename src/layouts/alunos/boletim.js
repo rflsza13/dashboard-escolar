@@ -95,7 +95,7 @@ function Boletim() {
           <Info rotulo="Presenças" valor={r.presencas} />
           <Info rotulo="Faltas" valor={r.faltas} />
           <Info rotulo="Reposições pendentes" valor={r.reposicoesPendentes} />
-          {recursos.pontos && <Info rotulo="Pontos (saldo)" valor={r.saldo} />}
+          {recursos.pontos && <Info rotulo="BuddyCoins (saldo)" valor={r.saldo} />}
         </div>
 
         {matriculas.length === 0 && <p style={{ color: cinza }}>Este aluno ainda não tem matrícula.</p>}

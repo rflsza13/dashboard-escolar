@@ -436,10 +436,10 @@ function FichaAluno() {
             <Grid item xs={12} xl={4}>
               <Card sx={{ height: "100%" }}>
                 <VuiTypography variant="lg" color="white" fontWeight="bold" mb="4px">
-                  Pontos
+                  BuddyCoins
                 </VuiTypography>
                 <VuiTypography variant="button" color="text" fontWeight="regular" mb="16px" sx={{ display: "block" }}>
-                  Saldo: {r.saldo} ponto(s)
+                  Saldo: {r.saldo} BuddyCoin(s)
                 </VuiTypography>
                 {pontosAluno.length === 0 && texto("Nenhum lançamento.")}
                 {pontosAluno.slice(0, 8).map((p) => (
@@ -459,7 +459,7 @@ function FichaAluno() {
                   </VuiBox>
                 ))}
                 <VuiButton size="small" color="info" variant="text" onClick={() => history.push("/pontos")}>
-                  Ver pontos de todos os alunos
+                  Ver BuddyCoin de todos os alunos
                 </VuiButton>
               </Card>
             </Grid>

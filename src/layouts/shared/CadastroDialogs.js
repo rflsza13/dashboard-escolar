@@ -18,6 +18,11 @@ import { FieldLabel, NativeSelect, dialogPaper } from "layouts/shared/fields";
 import FormDialog from "layouts/shared/FormDialog";
 
 const SIM_NAO = [{ valor: "Sim", rotulo: "Sim" }, { valor: "Não", rotulo: "Não" }];
+const OPCOES_GENERO = [
+  { valor: "Masculino", rotulo: "Menino (Masculino)" },
+  { valor: "Feminino", rotulo: "Menina (Feminino)" },
+  { valor: "Outro", rotulo: "Outro / Não informado" },
+];
 const MODALIDADES = [{ valor: "Presencial", rotulo: "Presencial" }, { valor: "Online", rotulo: "Online" }];
 const DIAS = DIAS_GRADE.map((d) => ({ valor: d, rotulo: d }));
 
@@ -28,6 +33,8 @@ export function AlunoDialog({ open, aluno, onClose }) {
     { chave: "nome", rotulo: "Nome", obrigatorio: true, cheia: true },
     { chave: "responsavel", rotulo: "Responsável" },
     { chave: "contato", rotulo: "Contato" },
+    { chave: "dataNascimento", rotulo: "Data de nascimento", tipo: "data" },
+    { chave: "genero", rotulo: "Gênero / Sexo", tipo: "select", opcoes: OPCOES_GENERO },
     { chave: "ativo", rotulo: "Aluno ativo", tipo: "select", opcoes: SIM_NAO, obrigatorio: true },
     { chave: "obs", rotulo: "Observações", cheia: true },
   ];
@@ -124,7 +131,7 @@ const novoHorario = () => ({ dia: "Seg", hora: "", modalidade: "Presencial" });
 export function AlunoNovoDialog({ open, onClose }) {
   const { dados, salvar } = useEscola();
   const history = useHistory();
-  const [f, setF] = useState({ nome: "", responsavel: "", contato: "", obs: "", cursoId: "", modulo: "1", dataInicio: hojeIso() });
+  const [f, setF] = useState({ nome: "", responsavel: "", contato: "", dataNascimento: "", genero: "Masculino", obs: "", cursoId: "", modulo: "1", dataInicio: hojeIso() });
   const [horarios, setHorarios] = useState([novoHorario()]);
   const [erros, setErros] = useState({});
   const [ocupado, setOcupado] = useState(false);
@@ -132,7 +139,7 @@ export function AlunoNovoDialog({ open, onClose }) {
   useEffect(() => {
     if (!open) return;
     setErros({});
-    setF({ nome: "", responsavel: "", contato: "", obs: "", cursoId: (dados.cursos[0] || {}).id || "", modulo: "1", dataInicio: hojeIso() });
+    setF({ nome: "", responsavel: "", contato: "", dataNascimento: "", genero: "Masculino", obs: "", cursoId: (dados.cursos[0] || {}).id || "", modulo: "1", dataInicio: hojeIso() });
     setHorarios([novoHorario()]);
     /* eslint-disable-next-line */
   }, [open]);
@@ -155,7 +162,15 @@ export function AlunoNovoDialog({ open, onClose }) {
   const cadastrar = async () => {
     if (!validar()) return;
     setOcupado(true);
-    const alunoId = await salvar("Alunos", { nome: f.nome.trim(), responsavel: f.responsavel.trim(), contato: f.contato.trim(), ativo: "Sim", obs: f.obs.trim() });
+    const alunoId = await salvar("Alunos", {
+      nome: f.nome.trim(),
+      responsavel: f.responsavel.trim(),
+      contato: f.contato.trim(),
+      dataNascimento: f.dataNascimento || "",
+      genero: f.genero || "",
+      ativo: "Sim",
+      obs: f.obs.trim(),
+    });
     let tudo = !!alunoId;
     for (let i = 0; tudo && i < horarios.length; i += 1) {
       const h = horarios[i];
@@ -208,6 +223,18 @@ export function AlunoNovoDialog({ open, onClose }) {
           <VuiBox>
             <FieldLabel>Contato</FieldLabel>
             <VuiInput fullWidth value={f.contato} onChange={set("contato")} />
+          </VuiBox>
+          <VuiBox>
+            <FieldLabel>Data de nascimento</FieldLabel>
+            <VuiInput fullWidth type="date" value={f.dataNascimento} onChange={set("dataNascimento")} inputProps={{ style: { colorScheme: "dark" } }} />
+          </VuiBox>
+          <VuiBox>
+            <FieldLabel>Gênero</FieldLabel>
+            <NativeSelect value={f.genero} onChange={set("genero")}>
+              <option value="Masculino">Menino (Masculino)</option>
+              <option value="Feminino">Menina (Feminino)</option>
+              <option value="Outro">Outro / Não informado</option>
+            </NativeSelect>
           </VuiBox>
           <VuiBox>
             <FieldLabel>Observações</FieldLabel>

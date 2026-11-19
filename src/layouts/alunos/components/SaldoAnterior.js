@@ -116,7 +116,7 @@ function Bloco({ item }) {
   );
 }
 
-// Pontos que o aluno já tinha no sistema anterior: viram um lançamento manual no saldo de pontos (um por aluno)
+// BuddyCoins que o aluno já tinha no sistema anterior: viram um lançamento manual no saldo de pontos (um por aluno)
 function PontosAnteriores({ alunoId }) {
   const { dados, salvar, excluir, user, pode } = useEscola();
   const existente = (dados.pontos || []).find((p) => p.alunoId === alunoId && p.tipo === "Ganho (manual)" && p.descricao === DESCRICAO_PONTOS_ANTERIOR);
@@ -136,7 +136,7 @@ function PontosAnteriores({ alunoId }) {
     const n = inteiro(valor);
     let ok = true;
     if (n > 0) {
-      ok = !!(await salvar("Pontos", {
+      ok = !!(await salvar("BuddyCoins", {
         id: existente ? existente.id : undefined,
         data: existente ? existente.data : hojeIso(),
         alunoId,
@@ -147,26 +147,26 @@ function PontosAnteriores({ alunoId }) {
         registradoPor: user ? user.email : "",
       }));
     } else if (existente) {
-      ok = !!(await excluir("Pontos", existente.id));
+      ok = !!(await excluir("BuddyCoins", existente.id));
     }
     setOcupado(false);
-    setMsg(ok ? "Pontos salvos." : "");
+    setMsg(ok ? "BuddyCoins salvos." : "");
   };
 
   return (
     <VuiBox sx={{ p: "14px 16px", borderRadius: "16px", background: "rgba(255,255,255,0.04)", borderLeft: "4px solid #01B574", mb: 2 }}>
       <VuiTypography variant="button" color="white" fontWeight="bold" sx={{ display: "block", mb: "4px" }}>
-        Pontos do aluno
+        BuddyCoins do aluno
       </VuiTypography>
       <VuiTypography variant="caption" color="text" sx={{ display: "block", mb: "12px" }}>
-        Entram no saldo de pontos do aluno (Pontos e prêmios) como um lançamento manual. Valem para o aluno todo, não por curso.
+        Entram no saldo de BuddyCoins do aluno (BuddyCoins e prêmios) como um lançamento manual. Valem para o aluno todo, não por curso.
       </VuiTypography>
       <VuiBox display="flex" flexWrap="wrap" alignItems="flex-end" gap="24px">
-        <Contador rotulo="Pontos" valor={valor} desabilitado={!pode.professor || ocupado} onChange={(novo) => { setValor(novo); setMsg(""); }} />
+        <Contador rotulo="BuddyCoins" valor={valor} desabilitado={!pode.professor || ocupado} onChange={(novo) => { setValor(novo); setMsg(""); }} />
         {pode.professor && (
           <VuiBox display="flex" alignItems="center" gap="12px">
             <VuiButton color="info" variant="contained" disabled={!alterado || ocupado} onClick={gravar}>
-              {ocupado ? "Salvando…" : "Salvar pontos"}
+              {ocupado ? "Salvando…" : "Salvar BuddyCoins"}
             </VuiButton>
             {msg && (
               <VuiTypography variant="caption" color="success">
