@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import PropTypes from "prop-types";
 
 import Dialog from "@mui/material/Dialog";
@@ -17,17 +17,28 @@ import { FieldLabel, NativeSelect, dialogPaper } from "layouts/shared/fields";
 
 const vazio = () => ({ tipo: "Experimental", nome: "", contato: "", cursoId: "", professorId: "", matriculaId: "", faltaId: "", data: hojeIso(), hora: "", modalidade: "Presencial" });
 
-function NovaAulaDialog({ open, dataInicial, onClose }) {
+function NovaAulaDialog({ open, dataInicial, horaInicial, onClose }) {
   const { dados, salvar, criarExperimental, recursos } = useEscola();
   const [f, setF] = useState(vazio());
+  const [busca, setBusca] = useState("");
+  const [buscaAberta, setBuscaAberta] = useState(false);
+  const buscaRef = useRef(null);
   const [erros, setErros] = useState({});
   const [ocupado, setOcupado] = useState(false);
 
   useEffect(() => {
     if (!open) return;
     setErros({});
-    setF({ ...vazio(), tipo: recursos.experimentais ? "Experimental" : "Avulsa", data: dataInicial || hojeIso(), cursoId: (dados.cursos[0] || {}).id || "" });
-  }, [open, dataInicial, dados.cursos, recursos.experimentais]);
+    setBusca("");
+    setBuscaAberta(false);
+    setF({
+      ...vazio(),
+      tipo: recursos.experimentais ? "Experimental" : "Avulsa",
+      data: dataInicial || hojeIso(),
+      hora: horaInicial || "",
+      cursoId: (dados.cursos[0] || {}).id || "",
+    });
+  }, [open, dataInicial, horaInicial, dados.cursos, recursos.experimentais]);
 
   const set = (k) => (e) => setF((x) => ({ ...x, [k]: e.target.value }));
   const alunoDe = (id) => (dados.alunos.find((a) => a.id === id) || {}).nome || "?";
@@ -44,11 +55,28 @@ function NovaAulaDialog({ open, dataInicial, onClose }) {
       .sort((a, b) => String(a.data).localeCompare(String(b.data)));
   };
   const faltasPendentes = useMemo(() => (f.matriculaId ? pendentesDe(f.matriculaId) : []), [dados.aulas, f.matriculaId]); // eslint-disable-line
-  const escolherMatricula = (e) => {
-    const matId = e.target.value;
-    const pend = matId ? pendentesDe(matId) : [];
-    setF((x) => ({ ...x, matriculaId: matId, faltaId: pend.length ? pend[0].id : "" }));
+
+  const selecionarMat = (m) => {
+    const pend = pendentesDe(m.id);
+    setF((x) => ({ ...x, matriculaId: m.id, faltaId: pend.length ? pend[0].id : "" }));
+    setBusca(`${alunoDe(m.alunoId)} — ${cursoDe(m.cursoId)}`);
+    setBuscaAberta(false);
   };
+
+  const limparSelecao = () => {
+    setBusca("");
+    setBuscaAberta(false);
+    setF((x) => ({ ...x, matriculaId: "", faltaId: "" }));
+  };
+
+  const resultadosBusca = useMemo(() => {
+    if (!busca.trim() || f.matriculaId) return [];
+    const q = busca.toLowerCase().trim();
+    return matriculasAtivas
+      .filter((m) => alunoDe(m.alunoId).toLowerCase().includes(q))
+      .slice(0, 8);
+  }, [busca, f.matriculaId, matriculasAtivas]); // eslint-disable-line
+
   const professoresAtivos = recursos.professores ? dados.professores.filter((p) => p.ativo !== "Não") : [];
 
   const validar = () => {
@@ -56,7 +84,7 @@ function NovaAulaDialog({ open, dataInicial, onClose }) {
     if (experimental && !f.nome.trim()) e.nome = "Informe o nome.";
     if (experimental && !f.cursoId) e.cursoId = "Escolha o curso.";
     if (experimental && professoresAtivos.length && !f.professorId) e.professorId = "Escolha o professor responsável.";
-    if (!experimental && !f.matriculaId) e.matriculaId = "Escolha o aluno e o curso.";
+    if (!experimental && !f.matriculaId) e.matriculaId = "Selecione o aluno.";
     if (!/^\d{4}-\d{2}-\d{2}$/.test(f.data)) e.data = "Informe a data.";
     if (!/^\d{1,2}:\d{2}$/.test(f.hora)) e.hora = "Informe o horário.";
     if (f.tipo === "Reposição" && f.matriculaId && f.data) {
@@ -116,7 +144,17 @@ function NovaAulaDialog({ open, dataInicial, onClose }) {
       <DialogContent>
         <VuiBox display="flex" gap="8px" mb={2} mt={1}>
           {[...(recursos.experimentais ? ["Experimental"] : []), "Avulsa", "Reposição"].map((t) => (
-            <VuiButton key={t} size="small" color="info" variant={f.tipo === t ? "contained" : "outlined"} onClick={() => setF((x) => ({ ...x, tipo: t }))}>
+            <VuiButton
+              key={t}
+              size="small"
+              color="info"
+              variant={f.tipo === t ? "contained" : "outlined"}
+              onClick={() => {
+                setF((x) => ({ ...x, tipo: t, matriculaId: "", faltaId: "" }));
+                setBusca("");
+                setBuscaAberta(false);
+              }}
+            >
               {t === "Experimental" ? "Aula experimental" : t === "Avulsa" ? "Aula avulsa" : "Aula de reposição"}
             </VuiButton>
           ))}
@@ -170,15 +208,68 @@ function NovaAulaDialog({ open, dataInicial, onClose }) {
             </>
           ) : (
             <VuiBox sx={{ gridColumn: "1 / -1" }}>
-              <FieldLabel>Aluno e curso</FieldLabel>
-              <NativeSelect value={f.matriculaId} onChange={escolherMatricula}>
-                <option value="">Escolha…</option>
-                {matriculasAtivas.map((m) => (
-                  <option key={m.id} value={m.id}>
-                    {alunoDe(m.alunoId)} — {cursoDe(m.cursoId)}
-                  </option>
-                ))}
-              </NativeSelect>
+              <FieldLabel>Pesquisar aluno</FieldLabel>
+              <VuiBox sx={{ position: "relative" }} ref={buscaRef}>
+                <VuiBox sx={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                  <VuiInput
+                    fullWidth
+                    placeholder="Digite o nome do aluno…"
+                    value={busca}
+                    onChange={(e) => {
+                      setBusca(e.target.value);
+                      setBuscaAberta(true);
+                      setF((x) => ({ ...x, matriculaId: "", faltaId: "" }));
+                    }}
+                    onFocus={() => {
+                      if (!f.matriculaId) setBuscaAberta(true);
+                    }}
+                    error={Boolean(erros.matriculaId)}
+                  />
+                  {busca && (
+                    <VuiButton size="small" color="text" variant="text" onClick={limparSelecao} sx={{ minWidth: 0, px: 1 }}>
+                      ✕
+                    </VuiButton>
+                  )}
+                </VuiBox>
+                {buscaAberta && resultadosBusca.length > 0 && (
+                  <VuiBox
+                    sx={{
+                      position: "absolute",
+                      zIndex: 1300,
+                      top: "100%",
+                      left: 0,
+                      right: 0,
+                      background: "rgba(18,18,24,0.98)",
+                      border: "1px solid rgba(255,255,255,0.12)",
+                      borderRadius: "8px",
+                      mt: "4px",
+                      maxHeight: "220px",
+                      overflowY: "auto",
+                      boxShadow: "0 12px 36px rgba(0,0,0,0.8)",
+                    }}
+                  >
+                    {resultadosBusca.map((m) => (
+                      <VuiBox
+                        key={m.id}
+                        onClick={() => selecionarMat(m)}
+                        sx={{
+                          p: "9px 14px",
+                          cursor: "pointer",
+                          borderBottom: "1px solid rgba(255,255,255,0.04)",
+                          "&:hover": { background: "rgba(227,36,43,0.15)" },
+                        }}
+                      >
+                        <VuiTypography variant="button" color="white" fontWeight="medium" sx={{ display: "block", fontSize: "13px" }}>
+                          {alunoDe(m.alunoId)}
+                        </VuiTypography>
+                        <VuiTypography variant="caption" color="text" sx={{ fontSize: "11px" }}>
+                          {cursoDe(m.cursoId)}
+                        </VuiTypography>
+                      </VuiBox>
+                    ))}
+                  </VuiBox>
+                )}
+              </VuiBox>
               {erro("matriculaId")}
               {reposicao && f.matriculaId && (
                 <VuiBox mt={2}>
@@ -231,7 +322,12 @@ function NovaAulaDialog({ open, dataInicial, onClose }) {
   );
 }
 
-NovaAulaDialog.defaultProps = { dataInicial: "" };
-NovaAulaDialog.propTypes = { open: PropTypes.bool.isRequired, dataInicial: PropTypes.string, onClose: PropTypes.func.isRequired };
+NovaAulaDialog.defaultProps = { dataInicial: "", horaInicial: "" };
+NovaAulaDialog.propTypes = {
+  open: PropTypes.bool.isRequired,
+  dataInicial: PropTypes.string,
+  horaInicial: PropTypes.string,
+  onClose: PropTypes.func.isRequired,
+};
 
 export default NovaAulaDialog;

@@ -5,12 +5,12 @@ const themeConfig = {
     customImageUrl: "",
     useDefaultImage: false,
     gradient:
-      "radial-gradient(900px 500px at 88% -8%, rgba(227, 36, 43, 0.20), transparent 60%), radial-gradient(700px 400px at -5% 105%, rgba(227, 36, 43, 0.08), transparent 60%), #070707",
+      "radial-gradient(1400px 900px at 80% 0%, rgba(227, 36, 43, 0.26), transparent 65%), radial-gradient(1100px 750px at 10% 90%, rgba(227, 36, 43, 0.14), transparent 65%), radial-gradient(900px 700px at 45% 40%, rgba(227, 36, 43, 0.07), transparent 70%), #08080b",
   },
   cards: {
-    background: "rgba(40, 6, 6, 0.74)",
+    background: "rgba(18, 18, 24, 0.78)",
     backdropFilter: "blur(120px)",
-    borderColor: "rgba(255, 255, 255, 0.125)",
+    borderColor: "rgba(255, 255, 255, 0.10)",
   },
   fonts: {
     primary: "#ffffff",
@@ -71,10 +71,10 @@ const themeConfig = {
     hoverColor: "",
   },
   inputs: {
-    backgroundColor: "rgba(53, 15, 15, 0.6)",
+    backgroundColor: "rgba(22, 22, 30, 0.65)",
     color: "#ffffff",
-    placeholderColor: "#a0aec0",
-    borderColor: "rgba(226, 232, 240, 0.3)",
+    placeholderColor: "#8c9ba5",
+    borderColor: "rgba(255, 255, 255, 0.12)",
     focusBorderColor: "#e3242b",
     focusBoxShadow: "rgba(227, 36, 43, 0.35)",
   },

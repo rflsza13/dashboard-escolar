@@ -49,8 +49,29 @@ function guardarToken(t) {
   }
 }
 
+/* ---------- cache local (abertura instantânea) ---------- */
+const CACHE_KEY = "escola-dados-cache";
+
+function lerCache() {
+  try {
+    const raw = window.localStorage.getItem(CACHE_KEY);
+    if (!raw) return null;
+    return JSON.parse(raw);
+  } catch (e) {
+    return null;
+  }
+}
+
+function gravarCache(dados, user, config) {
+  try {
+    window.localStorage.setItem(CACHE_KEY, JSON.stringify({ dados, user, config, ts: Date.now() }));
+  } catch (e) {
+    // ignora (quota localStorage)
+  }
+}
+
 /* ---------- estado ---------- */
-const initial = { fase: "inicio", erro: null, user: null, dados: VAZIO, pendentes: 0 };
+const initial = { fase: "inicio", erro: null, user: null, dados: VAZIO, pendentes: 0, toast: null };
 
 function upsertLista(lista, reg) {
   const i = lista.findIndex((r) => r.id === reg.id);
@@ -87,6 +108,8 @@ function reducer(state, action) {
     }
     case "PENDING":
       return { ...state, pendentes: Math.max(0, state.pendentes + action.delta) };
+    case "TOAST":
+      return { ...state, toast: action.toast };
     case "SAIR":
       return { ...initial, fase: "login", erro: action.erro || null };
     default:
@@ -103,6 +126,7 @@ export function EscolaProvider({ children }) {
   const sair = useCallback((mensagem) => {
     if (tokenRef.current && !isDemo) api.sair(tokenRef.current).catch(() => {});
     guardarToken(null);
+    try { window.localStorage.removeItem(CACHE_KEY); } catch (e) {}
     tokenRef.current = null;
     dispatch({ type: "SAIR", erro: mensagem || null });
   }, []);
@@ -127,6 +151,7 @@ export function EscolaProvider({ children }) {
       try {
         const r = await api.carregar(tokenRef.current);
         dispatch({ type: "CARREGADO", user: r.eu, dados: r.dados, config: r.config });
+        gravarCache(r.dados, r.eu, r.config);
       } catch (e) {
         tratarFalha(e, silencioso);
       }
@@ -142,7 +167,11 @@ export function EscolaProvider({ children }) {
     const t = tokenGuardado();
     if (t) {
       tokenRef.current = t;
-      carregar();
+      const cached = lerCache();
+      if (cached && cached.dados) {
+        dispatch({ type: "CARREGADO", user: cached.user, dados: cached.dados, config: cached.config });
+      }
+      carregar(Boolean(cached && cached.dados));
     } else {
       dispatch({ type: "FASE", fase: "login" });
     }
@@ -169,7 +198,7 @@ export function EscolaProvider({ children }) {
     const id = setInterval(() => {
       const s = stateRef.current;
       if (s.fase === "pronto" && s.pendentes === 0 && !document.hidden) carregar(true);
-    }, 120000);
+    }, 180000);
     return () => clearInterval(id);
   }, [carregar]);
 
@@ -330,6 +359,14 @@ export function EscolaProvider({ children }) {
 
   const limparErro = useCallback(() => dispatch({ type: "ERRO", value: null }), []);
 
+  const toast = useCallback((mensagem, severidade = "success") => {
+    dispatch({ type: "TOAST", toast: { id: Date.now(), mensagem, severidade } });
+  }, []);
+
+  const fecharToast = useCallback(() => {
+    dispatch({ type: "TOAST", toast: null });
+  }, []);
+
   // com o interruptor "Curso de inglês" desligado, as telas recebem os dados sem nada do inglês (a planilha não muda)
   const perfilAtual = state.user ? state.user.perfil : "";
   const dadosVisiveis = useMemo(() => {
@@ -377,8 +414,10 @@ export function EscolaProvider({ children }) {
       salvarAvaliacaoFinal,
       salvarNotaModulo,
       salvarConfig,
+      toast,
+      fecharToast,
     };
-  }, [state, entrar, sair, carregar, limparErro, salvar, excluir, marcarSessao, agendarReposicao, concluirModulo, resgatar, criarExperimental, movimentar, salvarAvaliacaoFinal, salvarNotaModulo, salvarConfig, dadosVisiveis]);
+  }, [state, entrar, sair, carregar, limparErro, salvar, excluir, marcarSessao, agendarReposicao, concluirModulo, resgatar, criarExperimental, movimentar, salvarAvaliacaoFinal, salvarNotaModulo, salvarConfig, toast, fecharToast, dadosVisiveis]);
 
   return <EscolaContext.Provider value={value}>{children}</EscolaContext.Provider>;
 }

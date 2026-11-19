@@ -19,7 +19,7 @@ import MovimentacaoDialog from "layouts/alunos/components/MovimentacaoDialog";
 import AvaliacaoFinalDialog from "layouts/alunos/components/AvaliacaoFinalDialog";
 import HistoricoMovimentacoes from "layouts/alunos/components/HistoricoMovimentacoes";
 import NotaModuloDialog from "layouts/alunos/components/NotaModuloDialog";
-import { DIAS_LONGOS, DURACAO_AULA, DURACAO_EXPERIMENTAL, alertasDeRisco, descricaoModulo, faseDoModulo, formatarData, formatarNota, frequenciaAcumulada, indexarAulas, resumoAluno, rotuloSituacao, serieMensal } from "utils/escola";
+import { DIAS_LONGOS, DURACAO_AULA, DURACAO_EXPERIMENTAL, alertasDeRisco, descricaoModulo, faseDoModulo, formatarData, formatarNota, frequenciaAcumulada, indexarAulas, resumoAluno, rotuloSituacao, serieMensal, faltasSemReposicao, hojeIso } from "utils/escola";
 
 import BarraStatus from "layouts/shared/BarraStatus";
 import StatusChip from "layouts/shared/StatusChip";
@@ -88,6 +88,12 @@ function FichaAluno() {
   const podeSair = r.matriculas.some((x) => ["Ativa", "Trancada"].includes(x.matricula.status));
   const avaliacaoDe = (matId) => (dados.avaliacoes || []).find((a) => a.matriculaId === matId && a.tipo === "Final");
 
+  const faltasPendentesReposicao = useMemo(() => {
+    if (!aluno) return [];
+    const matIds = new Set(dados.matriculas.filter((m) => m.alunoId === id).map((m) => m.id));
+    return faltasSemReposicao(dados, hojeIso(), 90).filter((a) => matIds.has(a.matriculaId));
+  }, [dados, aluno, id]);
+
   const concluir = async (m, prog) => {
     const atual = prog.atual && prog.atual.modulo;
     if (!atual) return;
@@ -124,9 +130,26 @@ function FichaAluno() {
               <IoArrowBack size="14px" style={{ marginRight: 4 }} />
               Alunos
             </VuiButton>
-            <VuiTypography variant="h4" color="white" fontWeight="bold">
+            <VuiTypography variant="h4" color="white" fontWeight="bold" sx={{ display: "flex", alignItems: "center", gap: "10px", flexWrap: "wrap" }}>
               {aluno.nome}
-              {aluno.ativo === "Não" ? " (inativo)" : ""}
+              {aluno.ativo === "Não" && <span style={{ fontSize: "12px", opacity: 0.7 }}>(inativo)</span>}
+              {faltasPendentesReposicao.length > 0 && (
+                <span
+                  title={`${faltasPendentesReposicao.length} falta(s) sem reposição nos últimos 90 dias`}
+                  style={{
+                    fontSize: "11px",
+                    fontWeight: 700,
+                    color: "#FF8A3D",
+                    border: "1px solid #FF8A3D",
+                    background: "rgba(255, 138, 61, 0.12)",
+                    borderRadius: "12px",
+                    padding: "2px 9px",
+                    letterSpacing: "0.4px",
+                  }}
+                >
+                  ⚠️ {faltasPendentesReposicao.length} reposição pendente
+                </span>
+              )}
             </VuiTypography>
             <VuiTypography variant="button" color="text" fontWeight="regular">
               {[aluno.responsavel && `Responsável: ${aluno.responsavel}`, aluno.contato, aluno.obs].filter(Boolean).join(" · ") || "Sem contato cadastrado"}

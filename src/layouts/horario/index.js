@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 
-import { Card } from "@mui/material";
+import { Card, Tab, Tabs, useMediaQuery, useTheme } from "@mui/material";
 
 import VuiBox from "components/VuiBox";
 import VuiTypography from "components/VuiTypography";
@@ -11,12 +11,14 @@ import DashboardLayout from "examples/LayoutContainers/DashboardLayout";
 import { IoChevronBack, IoChevronForward, IoAdd } from "react-icons/io5";
 
 import { useEscola } from "context/escola";
-import { CAT_INGLES, CAT_PROGRAMACAO, DEFAULT_CONFIG, DIAS_GRADE, ROTULO_CATEGORIA, formatarData, hojeIso, feriadoDaData, fimDaAula, legendaDeCursos, montarSessoes, segundaDaSemana, somarDias } from "utils/escola";
+import { CAT_INGLES, CAT_PROGRAMACAO, DEFAULT_CONFIG, DIAS_GRADE, ROTULO_CATEGORIA, barraDoStatus, fimDaAula, formatarData, formatarDataCurta, hojeIso, feriadoDaData, legendaDeCursos, misturarCor, montarSessoes, segundaDaSemana, somarDias } from "utils/escola";
 
 import BarraStatus from "layouts/shared/BarraStatus";
 import AulaDialog from "layouts/shared/AulaDialog";
 import NovaAulaDialog from "layouts/shared/NovaAulaDialog";
 import GradeSemanal from "layouts/horario/components/GradeSemanal";
+
+const FUNDO_CARD = "#150a0b";
 
 function Legenda({ cor, texto }) {
   return (
@@ -31,18 +33,106 @@ function Legenda({ cor, texto }) {
 
 const OPCOES_CURSO = [CAT_PROGRAMACAO, CAT_INGLES];
 
+// Vista mobile: lista vertical das aulas de um dia
+function ListaDiaria({ dia, sessoes, feriado, onSelecionar }) {
+  const aulasDoDia = sessoes.filter((s) => s.data === dia).sort((a, b) => a.hora.localeCompare(b.hora));
+
+  if (feriado) {
+    return (
+      <VuiBox sx={{ textAlign: "center", py: 4 }}>
+        <VuiTypography variant="button" color="text" sx={{ color: "#F5A524" }}>
+          {feriado.origem === "ferias" ? "🏖️ Férias" : "🎉 Feriado"} · {feriado.nome}
+        </VuiTypography>
+        <VuiTypography variant="caption" color="text" sx={{ display: "block", mt: 1 }}>
+          Sem aulas neste dia.
+        </VuiTypography>
+      </VuiBox>
+    );
+  }
+
+  if (aulasDoDia.length === 0) {
+    return (
+      <VuiBox sx={{ textAlign: "center", py: 4 }}>
+        <VuiTypography variant="button" color="text">
+          Nenhuma aula neste dia.
+        </VuiTypography>
+      </VuiBox>
+    );
+  }
+
+  return (
+    <VuiBox display="flex" flexDirection="column" gap="8px" mt={1}>
+      {aulasDoDia.map((s) => {
+        const barra = barraDoStatus(s.status);
+        return (
+          <VuiBox
+            key={s.chave}
+            onClick={() => onSelecionar(s)}
+            sx={{
+              display: "flex",
+              alignItems: "center",
+              gap: "12px",
+              p: "10px 14px",
+              borderRadius: "10px",
+              borderLeft: `4px solid ${s.cor}`,
+              background: misturarCor(s.cor, FUNDO_CARD, 0.34),
+              cursor: "pointer",
+              "&:hover": { background: misturarCor(s.cor, FUNDO_CARD, 0.52) },
+              position: "relative",
+              overflow: "hidden",
+            }}
+          >
+            {/* barra de status no canto direito */}
+            <VuiBox
+              sx={{
+                position: "absolute",
+                top: 0,
+                right: 0,
+                bottom: 0,
+                width: barra.marcada ? "8px" : "5px",
+                background: barra.cor,
+                boxShadow: barra.marcada ? `0 0 8px ${barra.cor}` : "none",
+              }}
+            />
+            <VuiBox sx={{ flex: 1, minWidth: 0 }}>
+              <VuiTypography variant="button" color="white" fontWeight="bold" sx={{ display: "block", mb: "2px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                {s.aluno}
+              </VuiTypography>
+              <VuiTypography variant="caption" color="text" sx={{ display: "block" }}>
+                {s.curso} · {s.hora}{fimDaAula(s.hora, s.duracao) ? `–${fimDaAula(s.hora, s.duracao)}` : ""}
+              </VuiTypography>
+            </VuiBox>
+            <VuiTypography variant="caption" sx={{ color: barra.cor, fontWeight: 700, flexShrink: 0, mr: "12px", fontSize: "11px" }}>
+              {barra.rotulo}
+            </VuiTypography>
+          </VuiBox>
+        );
+      })}
+    </VuiBox>
+  );
+}
+
 function Horario() {
   const { dados, pode, excluir, recursos, areaPerfil } = useEscola();
   const cfg = { ...DEFAULT_CONFIG, ...dados.config };
+  const muiTheme = useTheme();
+  const isMobile = useMediaQuery(muiTheme.breakpoints.down("md"));
+
   const [segunda, setSegunda] = useState(segundaDaSemana(hojeIso()));
   const [filtroEscolhido, setCursoFiltro] = useState(CAT_PROGRAMACAO);
+  const [aula, setAula] = useState(null);
+  const [nova, setNova] = useState(false);
+  const [novaInicial, setNovaInicial] = useState({ data: "", hora: "" });
+
   // instrutor vê só a aba da própria área; os demais, as abas liberadas em Configurações
   const opcoesCurso = areaPerfil ? [areaPerfil] : recursos.ingles ? OPCOES_CURSO : [CAT_PROGRAMACAO];
   const cursoFiltro = opcoesCurso.includes(filtroEscolhido) ? filtroEscolhido : opcoesCurso[0];
-  const [aula, setAula] = useState(null);
-  const [nova, setNova] = useState(false);
 
   const dias = useMemo(() => DIAS_GRADE.map((_, i) => somarDias(segunda, i)), [segunda]);
+
+  // Tab mobile: qual dia está selecionado (índice 0-5)
+  const diaHojeIdx = dias.indexOf(hojeIso());
+  const [tabDia, setTabDia] = useState(diaHojeIdx >= 0 ? diaHojeIdx : 0);
 
   const todas = useMemo(() => montarSessoes(dados, dias[0], dias[5], { comCanceladas: true }).filter((s) => s.categoria === cursoFiltro), [dados, dias, cursoFiltro]);
   const sessoes = useMemo(() => todas.filter((s) => !s.cancelada), [todas]);
@@ -51,6 +141,20 @@ function Horario() {
 
   const legenda = useMemo(() => legendaDeCursos(dados.cursos), [dados.cursos]);
   const semanaAtual = segunda === segundaDaSemana(hojeIso());
+
+  const irSemanaAnterior = () => {
+    setSegunda(somarDias(segunda, -7));
+    setTabDia(0);
+  };
+  const irProximaSemana = () => {
+    setSegunda(somarDias(segunda, 7));
+    setTabDia(0);
+  };
+  const irHoje = () => {
+    setSegunda(segundaDaSemana(hojeIso()));
+    const idx = dias.indexOf(hojeIso());
+    setTabDia(idx >= 0 ? idx : 0);
+  };
 
   return (
     <DashboardLayout>
@@ -68,18 +172,18 @@ function Horario() {
             </VuiTypography>
           </VuiBox>
           <VuiBox display="flex" flexWrap="wrap" alignItems="center" gap="8px">
-            <VuiButton size="small" color="info" variant="outlined" onClick={() => setSegunda(somarDias(segunda, -7))}>
+            <VuiButton size="small" color="info" variant="outlined" onClick={irSemanaAnterior}>
               <IoChevronBack size="14px" />
             </VuiButton>
-            <VuiButton size="small" color="info" variant="outlined" disabled={semanaAtual} onClick={() => setSegunda(segundaDaSemana(hojeIso()))}>
+            <VuiButton size="small" color="info" variant="outlined" disabled={semanaAtual} onClick={irHoje}>
               Hoje
             </VuiButton>
-            <VuiButton size="small" color="info" variant="outlined" onClick={() => setSegunda(somarDias(segunda, 7))}>
+            <VuiButton size="small" color="info" variant="outlined" onClick={irProximaSemana}>
               <IoChevronForward size="14px" />
             </VuiButton>
 
             {pode.professor && (
-              <VuiButton size="small" color="info" variant="contained" onClick={() => setNova(true)}>
+              <VuiButton size="small" color="info" variant="contained" onClick={() => { setNovaInicial({ data: "", hora: "" }); setNova(true); }}>
                 <IoAdd size="14px" style={{ marginRight: 4 }} />
                 Nova aula
               </VuiButton>
@@ -87,7 +191,7 @@ function Horario() {
           </VuiBox>
         </VuiBox>
 
-        {/* Abas / Botões alternadores no topo da grade */}
+        {/* Abas de categoria (Programação / Inglês) */}
         <VuiBox display="flex" alignItems="center" gap="10px" mb={2}>
           {opcoesCurso.length > 1 && opcoesCurso.map((opcao) => {
             const ativo = cursoFiltro === opcao;
@@ -98,13 +202,7 @@ function Horario() {
                 color="info"
                 variant={ativo ? "contained" : "outlined"}
                 onClick={() => setCursoFiltro(opcao)}
-                sx={{
-                  borderRadius: "8px",
-                  px: 2,
-                  py: 0.8,
-                  textTransform: "none",
-                  fontWeight: ativo ? "bold" : "regular",
-                }}
+                sx={{ borderRadius: "8px", px: 2, py: 0.8, textTransform: "none", fontWeight: ativo ? "bold" : "regular" }}
               >
                 {ROTULO_CATEGORIA[opcao]}
               </VuiButton>
@@ -121,11 +219,69 @@ function Horario() {
               <Legenda key={l.chave} cor={l.cor} texto={l.rotulo} />
             ))}
           </VuiBox>
-          <GradeSemanal dias={dias} sessoes={sessoes} feriados={feriadosSemana} onSelecionar={setAula} />
-          {sessoes.length === 0 && (
-            <VuiTypography variant="button" color="text" fontWeight="regular" mt={2} sx={{ display: "block" }}>
-              Nenhuma aula encontrada para o filtro selecionado nesta semana.
-            </VuiTypography>
+
+          {isMobile ? (
+            /* ── Vista Mobile: tabs por dia + lista vertical ── */
+            <>
+              <Tabs
+                value={tabDia}
+                onChange={(_, v) => setTabDia(v)}
+                variant="scrollable"
+                scrollButtons="auto"
+                sx={{
+                  mb: 2,
+                  "& .MuiTabs-indicator": { background: "#e3242b", height: "3px", borderRadius: "2px" },
+                  "& .MuiTab-root": { color: "rgba(255,255,255,0.5)", fontSize: "12px", minWidth: 0, px: 1.5, textTransform: "none" },
+                  "& .Mui-selected": { color: "#fff !important", fontWeight: 700 },
+                }}
+              >
+                {dias.map((d, i) => {
+                  const ehHoje = d === hojeIso();
+                  const countAulas = sessoes.filter((s) => s.data === d).length;
+                  return (
+                    <Tab
+                      key={d}
+                      label={
+                        <VuiBox sx={{ textAlign: "center" }}>
+                          <VuiTypography variant="caption" sx={{ display: "block", fontSize: "11px", fontWeight: ehHoje ? 800 : 500, color: "inherit", lineHeight: 1 }}>
+                            {DIAS_GRADE[i]}
+                          </VuiTypography>
+                          <VuiTypography variant="caption" sx={{ display: "block", fontSize: "10px", color: "inherit", opacity: 0.7, lineHeight: 1.3 }}>
+                            {formatarDataCurta(d)}
+                          </VuiTypography>
+                          {countAulas > 0 && (
+                            <VuiBox sx={{ width: 6, height: 6, borderRadius: "50%", background: ehHoje ? "#e3242b" : "rgba(255,255,255,0.4)", margin: "2px auto 0" }} />
+                          )}
+                        </VuiBox>
+                      }
+                      sx={{ background: ehHoje ? "rgba(227,36,43,0.12)" : "transparent", borderRadius: "8px 8px 0 0" }}
+                    />
+                  );
+                })}
+              </Tabs>
+              <ListaDiaria
+                dia={dias[tabDia]}
+                sessoes={sessoes}
+                feriado={feriadosSemana[tabDia]}
+                onSelecionar={setAula}
+              />
+            </>
+          ) : (
+            /* ── Vista Desktop: grade semanal completa ── */
+            <>
+              <GradeSemanal
+                dias={dias}
+                sessoes={sessoes}
+                feriados={feriadosSemana}
+                onSelecionar={setAula}
+                onNovaCelula={pode.professor ? (data, hora) => { setNovaInicial({ data, hora }); setNova(true); } : undefined}
+              />
+              {sessoes.length === 0 && (
+                <VuiTypography variant="button" color="text" fontWeight="regular" mt={2} sx={{ display: "block" }}>
+                  Nenhuma aula encontrada para o filtro selecionado nesta semana.
+                </VuiTypography>
+              )}
+            </>
           )}
         </Card>
 
@@ -153,7 +309,12 @@ function Horario() {
         )}
       </VuiBox>
       <AulaDialog sessao={aula} onClose={() => setAula(null)} />
-      <NovaAulaDialog open={nova} dataInicial={dias.includes(hojeIso()) ? hojeIso() : dias[0]} onClose={() => setNova(false)} />
+      <NovaAulaDialog
+        open={nova}
+        dataInicial={novaInicial.data || (dias.includes(hojeIso()) ? hojeIso() : dias[0])}
+        horaInicial={novaInicial.hora}
+        onClose={() => setNova(false)}
+      />
     </DashboardLayout>
   );
 }

@@ -16,6 +16,7 @@ import Sidenav from "examples/Sidenav";
 import theme from "assets/theme";
 import routes from "routes";
 import Login from "layouts/auth";
+import ToastNotificacao from "layouts/shared/ToastNotificacao";
 
 import { useVisionUIController, setMiniSidenav } from "context";
 import { useEscola } from "context/escola";
@@ -129,6 +130,7 @@ export default function App() {
     <ThemeProvider theme={theme}>
       <CssBaseline />
       {conteudo}
+      <ToastNotificacao />
     </ThemeProvider>
   );
 }

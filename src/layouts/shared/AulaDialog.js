@@ -19,10 +19,12 @@ import { FieldLabel, NativeSelect, dialogPaper } from "layouts/shared/fields";
 import StatusChip from "layouts/shared/StatusChip";
 
 function AulaDialog({ sessao, onClose }) {
-  const { dados, pode, marcarSessao, agendarReposicao, concluirModulo, salvar, excluir, recursos } = useEscola();
+  const { dados, pode, marcarSessao, agendarReposicao, concluirModulo, salvar, excluir, recursos, toast } = useEscola();
   const history = useHistory();
   const [modoRep, setModoRep] = useState(false);
+  const [modoReag, setModoReag] = useState(false);
   const [rep, setRep] = useState({ data: "", hora: "", modalidade: "Presencial" });
+  const [reag, setReag] = useState({ data: "", hora: "" });
   const [erro, setErro] = useState("");
   const [ocupado, setOcupado] = useState(false);
 
@@ -35,6 +37,8 @@ function AulaDialog({ sessao, onClose }) {
   useEffect(() => {
     if (!sessao) return;
     setModoRep(false);
+    setModoReag(false);
+    setReag({ data: sessao.data || "", hora: sessao.hora || "" });
     setErro("");
     setBomComportamento(false);
     setObsModulo("");
@@ -56,6 +60,13 @@ function AulaDialog({ sessao, onClose }) {
   const marcar = async (acao) => {
     onClose();
     await marcarSessao(sessao, acao);
+    if (acao === "Presente") {
+      toast(`Presença de ${sessao.aluno} confirmada ✓`, "success");
+    } else if (acao === "Falta") {
+      toast(`Falta de ${sessao.aluno} registrada`, "warning");
+    } else if (acao === "Limpar") {
+      toast("Marcação removida", "info");
+    }
   };
 
   const confirmarReposicao = async () => {
@@ -95,7 +106,30 @@ function AulaDialog({ sessao, onClose }) {
     }
 
     onClose();
-    return agendarReposicao(sessao, rep);
+    await agendarReposicao(sessao, rep);
+    toast(`Reposição de ${sessao.aluno} agendada para ${formatarData(rep.data)} às ${rep.hora} ✓`, "success");
+    return null;
+  };
+
+  const reagendar = async () => {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(reag.data)) return;
+    if (!/^\d{1,2}:\d{2}$/.test(reag.hora)) return;
+    const aulaExistente = sessao.aulaId ? dados.aulas.find((a) => a.id === sessao.aulaId) : null;
+    if (aulaExistente) {
+      const ok = await salvar("Aulas", { ...aulaExistente, data: reag.data, hora: reag.hora });
+      if (ok) {
+        onClose();
+        toast(`Aula de ${sessao.aluno} reagendada para ${formatarData(reag.data)} às ${reag.hora}`, "success");
+      }
+    } else {
+      // aula regular sem registro: cancela este dia e cria avulsa na nova data
+      await salvar("Aulas", { data: sessao.data, matriculaId: sessao.matriculaId, status: "Cancelada", tipo: "Regular", hora: "", modalidade: "", modulo: matricula ? matricula.moduloAtual : "", reposicaoDe: "", obs: "" });
+      const ok = await salvar("Aulas", { data: reag.data, matriculaId: sessao.matriculaId, status: "", tipo: "Avulsa", hora: reag.hora, modalidade: sessao.modalidade || "Presencial", modulo: matricula ? matricula.moduloAtual : "", reposicaoDe: "", obs: "" });
+      if (ok) {
+        onClose();
+        toast(`Aula de ${sessao.aluno} reagendada para ${formatarData(reag.data)} às ${reag.hora}`, "success");
+      }
+    }
   };
 
   // aula regular: some da grade só neste dia (status "Cancelada", dá para restaurar); as demais são apagadas
@@ -107,13 +141,19 @@ function AulaDialog({ sessao, onClose }) {
     const ok = existente
       ? await salvar("Aulas", { ...existente, status: "Cancelada" })
       : await salvar("Aulas", { data: sessao.data, matriculaId: sessao.matriculaId, status: "Cancelada", tipo: "Regular", hora: "", modalidade: "", modulo: matricula ? matricula.moduloAtual : "", reposicaoDe: "", obs: "" });
-    if (ok) onClose();
+    if (ok) {
+      onClose();
+      toast("Aula cancelada", "warning");
+    }
   };
 
   const apagarAula = async () => {
     const extra = sessao.tipo === "Experimental" ? " O cadastro do visitante continua em Alunos." : sessao.tipo === "Reposição" ? " A falta de origem volta a ficar sem reposição." : "";
     if (!window.confirm(`Apagar esta aula (${String(sessao.tipo).toLowerCase()}) de ${sessao.aluno} em ${formatarData(sessao.data)}? Ela é removida da grade.${extra}`)) return;
-    if (await excluir("Aulas", sessao.aulaId)) onClose();
+    if (await excluir("Aulas", sessao.aulaId)) {
+      onClose();
+      toast("Aula removida", "info");
+    }
   };
 
   const concluir = async () => {
@@ -134,7 +174,10 @@ function AulaDialog({ sessao, onClose }) {
     setOcupado(true);
     const r = await concluirModulo(sessao.matriculaId, { bomComportamento, obs: obsModulo, nota: recursos.avaliacoes ? nota : "" });
     setOcupado(false);
-    if (r.ok) onClose();
+    if (r.ok) {
+      onClose();
+      toast(`Módulo ${moduloAtual.nome} concluído! 🎉${recursos.pontos ? ` +${pts} pts para ${sessao.aluno}` : ""}`, "success");
+    }
   };
 
   return (
@@ -190,7 +233,7 @@ function AulaDialog({ sessao, onClose }) {
           </VuiTypography>
         )}
 
-        {pode.professor && !modoRep && (
+        {pode.professor && !modoRep && !modoReag && (
           <VuiBox display="flex" flexWrap="wrap" gap="8px">
             <VuiButton size="small" color="success" variant="contained" onClick={() => marcar("Presente")}>
               Presente
@@ -217,6 +260,9 @@ function AulaDialog({ sessao, onClose }) {
                 </VuiButton>
               )
             )}
+            <VuiButton size="small" color="info" variant="outlined" onClick={() => setModoReag(true)}>
+              Reagendar
+            </VuiButton>
           </VuiBox>
         )}
 
@@ -258,7 +304,33 @@ function AulaDialog({ sessao, onClose }) {
           </VuiBox>
         )}
 
-        {podeConcluir && !modoRep && (
+        {pode.professor && modoReag && (
+          <VuiBox>
+            <VuiTypography variant="button" color="white" fontWeight="regular" sx={{ display: "block", mb: 1.5 }}>
+              Escolha a nova data e horário para esta aula.
+            </VuiTypography>
+            <VuiBox sx={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
+              <VuiBox>
+                <FieldLabel>Nova data</FieldLabel>
+                <VuiInput fullWidth type="date" value={reag.data} onChange={(e) => setReag({ ...reag, data: e.target.value })} inputProps={{ style: { colorScheme: "dark" } }} />
+              </VuiBox>
+              <VuiBox>
+                <FieldLabel>Novo horário</FieldLabel>
+                <VuiInput fullWidth type="time" value={reag.hora} onChange={(e) => setReag({ ...reag, hora: e.target.value })} inputProps={{ style: { colorScheme: "dark" } }} />
+              </VuiBox>
+            </VuiBox>
+            <VuiBox display="flex" gap="8px" mt={2}>
+              <VuiButton size="small" color="info" variant="contained" onClick={reagendar}>
+                Confirmar reagendamento
+              </VuiButton>
+              <VuiButton size="small" color="text" variant="text" onClick={() => setModoReag(false)}>
+                Voltar
+              </VuiButton>
+            </VuiBox>
+          </VuiBox>
+        )}
+
+        {podeConcluir && !modoRep && !modoReag && (
           <VuiBox mt={3} pt={2} sx={{ borderTop: "1px solid rgba(120,120,120,0.45)" }}>
             <VuiTypography variant="caption" color="text" sx={{ display: "block", mb: 1 }}>
               Módulo atual: {descricaoModulo(modulos, moduloAtual)} · {moduloAtual.nome}

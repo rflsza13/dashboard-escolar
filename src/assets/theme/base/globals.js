@@ -12,7 +12,7 @@ const bodyBackground =
   themeConfig.background && themeConfig.background.customImageUrl
     ? `url("${themeConfig.background.customImageUrl}")`
     : (themeConfig.background && themeConfig.background.gradient) ||
-      "radial-gradient(900px 500px at 88% -8%, rgba(227, 36, 43, 0.20), transparent 60%), radial-gradient(700px 400px at -5% 105%, rgba(227, 36, 43, 0.08), transparent 60%), #070707";
+      "radial-gradient(1400px 900px at 80% 0%, rgba(227, 36, 43, 0.26), transparent 65%), radial-gradient(1100px 750px at 10% 90%, rgba(227, 36, 43, 0.14), transparent 65%), radial-gradient(900px 700px at 45% 40%, rgba(227, 36, 43, 0.07), transparent 70%), #08080b";
 
 export default {
   html: {

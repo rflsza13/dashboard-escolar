@@ -41,11 +41,12 @@ FieldLabel.propTypes = { children: PropTypes.node.isRequired };
 
 export const dialogPaper = {
   sx: {
-    background: (themeConfig.cards && themeConfig.cards.background) || "#141414",
+    background: (themeConfig.cards && themeConfig.cards.background) || "#121218",
     backdropFilter: (themeConfig.cards && themeConfig.cards.backdropFilter) || "blur(120px)",
     WebkitBackdropFilter: (themeConfig.cards && themeConfig.cards.backdropFilter) || "blur(120px)",
     backgroundImage: "none",
-    border: `1px solid ${(themeConfig.cards && themeConfig.cards.borderColor) || "#3A3A3A"}`,
+    border: `1px solid rgba(255, 255, 255, 0.12)`,
+    boxShadow: "0 24px 60px rgba(0, 0, 0, 0.75)",
     borderRadius: "20px",
     color: (themeConfig.fonts && themeConfig.fonts.primary) || "#fff",
   },
