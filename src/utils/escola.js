@@ -32,6 +32,7 @@ export const DEFAULT_CONFIG = {
   recursoMigracao: false,
   recursoFeriados: true,
   recursoIngles: true,
+  limitarIntervaloReposicao: true,
   riscoFaltasSeguidas: 3,
   riscoReposicoes: 2,
 };
@@ -49,6 +50,7 @@ export const RECURSOS = [
   { chave: "recursoFeriados", rotulo: "Feriados e férias", ajuda: "Tira as aulas regulares dos feriados nacionais, dos dias cadastrados e dos períodos de férias de Configurações." },
   { chave: "recursoIngles", rotulo: "Curso de inglês", ajuda: "Desligado, esconde tudo do inglês (cursos, alunos, aulas, escala e a aba Inglês da grade). Os dados continuam salvos e voltam ao religar." },
   { chave: "recursoAlertas", rotulo: "Alertas de risco de evasão", ajuda: "Card Alunos em risco no dashboard e marcação na lista e na ficha do aluno." },
+  { chave: "limitarIntervaloReposicao", rotulo: "Limitar reposições (1 a cada 30 dias)", ajuda: "Quando ativado, bloqueia o agendamento de mais de 1 reposição no intervalo de 30 dias (permitindo até 2 no mesmo dia). Desligue para permitir reposições sem restrição de prazo." },
 ];
 export function recursoLigado(cfg, chave) {
   const v = cfg ? cfg[chave] : undefined;
@@ -998,7 +1000,7 @@ export function calcularMetricasGerais(dados, diasFiltro = null) {
     if (dataCorte && a.data < dataCorte) return;
     const m = matPorId[a.matriculaId];
     if (!m) return;
-    const e = expPorAluno[m.alunoId] || (expPorAluno[m.alunoId] = { primeira: a.data, realizada: false });
+    const e = expPorAluno[m.alunoId] || (expPorAluno[m.alunoId] = { primeira: a.data, realizada: false, cursoId: m.cursoId || a.cursoId });
     if (a.data < e.primeira) e.primeira = a.data;
     if (ehPresenca(a.status)) e.realizada = true;
   });
@@ -1007,9 +1009,88 @@ export function calcularMetricasGerais(dados, diasFiltro = null) {
   const expRealizadas = idsExp.filter((id) => expPorAluno[id].realizada).length;
   // matriculado = tem matrícula de verdade (não experimental) começando na data da experimental ou depois
   const matriculadosExp = idsExp.filter((id) =>
+    expPorAluno[id].realizada &&
     matriculas.some((m) => m.alunoId === id && ["Ativa", "Concluída", "Trancada", "Saiu"].includes(m.status) && (!m.dataInicio || m.dataInicio >= expPorAluno[id].primeira))
   ).length;
-  const taxaConversaoExp = totalExp > 0 ? Math.round((matriculadosExp / totalExp) * 100) : 0;
+  // Conversão calculada estritamente sobre as aulas REALIZADAS (quem de fato compareceu)
+  const taxaConversaoExp = expRealizadas > 0 ? Math.round((matriculadosExp / expRealizadas) * 100) : 0;
+
+  // Listas detalhadas para o card inferior do relatório:
+  // 6.1 Alunos que efetivaram matrícula e que fizeram experimental mas não matricularam
+  const alunosMap = mapa(todosAlunos);
+  const listaExpMatriculados = [];
+  const listaExpNaoMatriculados = [];
+
+  idsExp.forEach((id) => {
+    const info = expPorAluno[id];
+    const al = alunosMap[id];
+    if (!al) return;
+
+    const crExp = cursos.find((c) => c.id === info.cursoId);
+    const matEfetiva = matriculas.find(
+      (m) => m.alunoId === id && ["Ativa", "Concluída", "Trancada", "Saiu"].includes(m.status) && (!m.dataInicio || m.dataInicio >= info.primeira)
+    );
+
+    if (matEfetiva) {
+      const crMat = cursos.find((c) => c.id === matEfetiva.cursoId);
+      listaExpMatriculados.push({
+        alunoId: id,
+        nome: al.nome,
+        contato: al.contato || al.responsavel || "—",
+        dataExp: info.primeira,
+        realizada: info.realizada,
+        cursoMatriculado: crMat ? crMat.nome : (crExp ? crExp.nome : "—"),
+        statusMatricula: matEfetiva.status,
+      });
+    } else if (info.realizada) {
+      listaExpNaoMatriculados.push({
+        alunoId: id,
+        nome: al.nome,
+        contato: al.contato || al.responsavel || "—",
+        dataExp: info.primeira,
+        cursoExp: crExp ? crExp.nome : "—",
+      });
+    }
+  });
+
+  // 6.2 Alunos que saíram do curso (desistências / inativos / trancados)
+  const listaEvadidos = [];
+  const chavesEvadidos = new Set();
+  matriculas
+    .filter((m) => ["Inativa", "Cancelada", "Saiu", "Trancada"].includes(m.status))
+    .forEach((m) => {
+      const al = alunosMap[m.alunoId];
+      if (al && !chavesEvadidos.has(`${m.alunoId}_${m.id}`)) {
+        chavesEvadidos.add(`${m.alunoId}_${m.id}`);
+        const cr = cursos.find((c) => c.id === m.cursoId);
+        listaEvadidos.push({
+          alunoId: m.alunoId,
+          nome: al.nome,
+          contato: al.contato || al.responsavel || "—",
+          curso: cr ? cr.nome : "—",
+          status: m.status,
+          dataInicio: m.dataInicio || "—",
+          obs: m.obs || al.obs || "",
+        });
+      }
+    });
+
+  todosAlunos
+    .filter((a) => a.ativo === "Não")
+    .forEach((a) => {
+      if (![...chavesEvadidos].some((k) => k.startsWith(`${a.id}_`))) {
+        chavesEvadidos.add(`${a.id}_geral`);
+        listaEvadidos.push({
+          alunoId: a.id,
+          nome: a.nome,
+          contato: a.contato || a.responsavel || "—",
+          curso: "—",
+          status: "Inativo",
+          dataInicio: "—",
+          obs: a.obs || "",
+        });
+      }
+    });
 
   // 7. Alunos em Risco de Evasão (ativos com 2+ faltas recentes sem reposição)
   const faltasRecentesSemRep = {};
@@ -1067,5 +1148,8 @@ export function calcularMetricasGerais(dados, diasFiltro = null) {
     matriculadosExp,
     taxaConversaoExp,
     alunosRisco,
+    listaEvadidos,
+    listaExpMatriculados,
+    listaExpNaoMatriculados,
   };
 }

@@ -61,7 +61,7 @@ function ListaDiaria({ dia, sessoes, feriado, onSelecionar }) {
   }
 
   return (
-    <VuiBox display="flex" flexDirection="column" gap="8px" mt={1}>
+    <VuiBox sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", sm: "repeat(2, 1fr)" }, gap: "8px", mt: 1 }}>
       {aulasDoDia.map((s) => {
         const barra = barraDoStatus(s.status);
         return (

@@ -152,7 +152,14 @@ function GradeSemanal({ dias, sessoes, onSelecionar, feriados, onNovaCelula }) {
                       />
                     )}
 
-                    <VuiBox display="flex" flexDirection="column" gap="3px">
+                    <VuiBox
+                      sx={{
+                        display: umDia ? "grid" : "flex",
+                        gridTemplateColumns: umDia ? "repeat(2, 1fr)" : undefined,
+                        flexDirection: umDia ? undefined : "column",
+                        gap: umDia ? "6px" : "3px",
+                      }}
+                    >
                       {aulas.map((s) => {
                         const barra = barraDoStatus(s.status);
                         return (
