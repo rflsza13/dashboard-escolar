@@ -143,3 +143,22 @@ Se a sua planilha foi criada antes desta versão:
   (faltas sem reposição agendada + as lançadas aqui). Admin e Professor podem lançar e corrigir; salvar de novo atualiza a mesma linha.
 - Na planilha, a aba **Migracao** (uma linha por matrícula) é criada sozinha na primeira leitura depois de colar o novo `Code.gs` (ou ao rodar `prepararNovidades`).
 - O saldo não tem data, então não entra no ranking de faltas por período do dashboard nem nos gráficos por mês.
+
+## Atualização: correções e melhorias (aula experimental, saída, relatório, certificados)
+Para a planilha que já está em uso:
+1. No Apps Script, substitua todo o conteúdo pelo novo `apps-script/Code.gs` e **mantenha o seu CLIENT_ID** no topo.
+2. Selecione a função `corrigirValidacoes` e clique em **Executar**. Ela refaz as listas suspensas das abas (inclui a situação **Saiu**
+   em Matriculas, que causava o erro "Valor inválido - Escolha um valor da lista" ao registrar saída). Sem ela, a saída continua dando erro.
+3. **Implantar → Gerenciar implantações → editar → nova versão**.
+4. Extraia o zip por cima do projeto e reinicie o `npm start`.
+
+O que mudou:
+- **Aula experimental sem duplicar:** se já existe aluno com o mesmo nome (sem diferenciar maiúsculas e acentos), a aula vai para o cadastro dele.
+  Se a aula anterior ainda não foi marcada, ela é apenas remarcada; se foi marcada como falta, a falta fica no histórico e entra uma nova aula.
+- **Converter em matrícula:** botão na ficha do aluno (matrícula experimental) e na janela da aula experimental (perfis de gestão).
+  Ativa a matrícula e o aluno, define dia/horário semanal e registra a entrada. O relatório passa a contar a conversão.
+- **Relatório:** "Conversão Exp." mostra matriculados, realizadas e marcadas (por aluno, sem contar a mesma pessoa duas vezes). A evasão agora conta a situação "Saiu".
+- **Dashboard:** botões de presença/falta ao passar o mouse nos cards do andamento do dia; card "Cursos chegando ao fim";
+  alerta "Certificados para emitir" (conclusões dos últimos 90 dias). "Marcar como emitido" grava na aba Movimentacoes (tipo Certificado).
+- **Horário das aulas:** abre no dia atual (cards mais largos); o botão "Semana completa" mostra a grade de segunda a sábado.
+- **BuddyCoins:** pesquisa de aluno ao lançar pontos e ao resgatar prêmio.

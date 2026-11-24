@@ -12,13 +12,13 @@ import VuiInput from "components/VuiInput";
 import VuiButton from "components/VuiButton";
 
 import { useEscola } from "context/escola";
-import { DURACAO_EXPERIMENTAL, ehFalta, formatarData, hojeIso, dataDeIso } from "utils/escola";
+import { DURACAO_EXPERIMENTAL, acharAlunoPorNome, ehFalta, formatarData, hojeIso, dataDeIso } from "utils/escola";
 import { FieldLabel, NativeSelect, dialogPaper } from "layouts/shared/fields";
 
 const vazio = () => ({ tipo: "Experimental", nome: "", contato: "", cursoId: "", professorId: "", matriculaId: "", faltaId: "", data: hojeIso(), hora: "", modalidade: "Presencial" });
 
 function NovaAulaDialog({ open, dataInicial, horaInicial, onClose }) {
-  const { dados, salvar, criarExperimental, recursos } = useEscola();
+  const { dados, salvar, criarExperimental, recursos, toast } = useEscola();
   const [f, setF] = useState(vazio());
   const [busca, setBusca] = useState("");
   const [buscaAberta, setBuscaAberta] = useState(false);
@@ -77,6 +77,9 @@ function NovaAulaDialog({ open, dataInicial, horaInicial, onClose }) {
       .slice(0, 8);
   }, [busca, f.matriculaId, matriculasAtivas]); // eslint-disable-line
 
+  // visitante que já tem cadastro (marcou antes e não veio, por exemplo): a aula vai para o cadastro existente
+  const alunoExistente = useMemo(() => (experimental ? acharAlunoPorNome(dados.alunos, f.nome, f.contato) : null), [experimental, dados.alunos, f.nome, f.contato]);
+
   const professoresAtivos = recursos.professores ? dados.professores.filter((p) => p.ativo !== "Não") : [];
 
   const validar = () => {
@@ -116,6 +119,7 @@ function NovaAulaDialog({ open, dataInicial, horaInicial, onClose }) {
     if (experimental) {
       const r = await criarExperimental({ nome: f.nome.trim(), contato: f.contato.trim(), cursoId: f.cursoId, professorId: f.professorId, data: f.data, hora: f.hora, duracao: DURACAO_EXPERIMENTAL, modalidade: f.modalidade });
       ok = r.ok;
+      if (r.ok && r.reaproveitado) toast("Aluno já cadastrado: a aula experimental foi vinculada ao cadastro existente (sem duplicar).", "info");
     } else if (reposicao) {
       const m = dados.matriculas.find((x) => x.id === f.matriculaId);
       ok = !!(await salvar("Aulas", { data: f.data, matriculaId: f.matriculaId, status: "Reposição agendada", tipo: "Reposição", hora: f.hora, modalidade: f.modalidade, modulo: m ? m.moduloAtual : "", reposicaoDe: f.faltaId || "", obs: "" }));
@@ -174,6 +178,11 @@ function NovaAulaDialog({ open, dataInicial, horaInicial, onClose }) {
                 <FieldLabel>Nome do aluno</FieldLabel>
                 <VuiInput fullWidth value={f.nome} onChange={set("nome")} error={Boolean(erros.nome)} />
                 {erro("nome")}
+                {alunoExistente && (
+                  <VuiTypography variant="caption" sx={{ display: "block", mt: "4px", color: "#F5A524" }}>
+                    Já existe um aluno com este nome. A aula será vinculada ao cadastro dele, sem duplicar.
+                  </VuiTypography>
+                )}
               </VuiBox>
               <VuiBox>
                 <FieldLabel>Contato (opcional)</FieldLabel>

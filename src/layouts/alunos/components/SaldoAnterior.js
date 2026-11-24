@@ -136,7 +136,7 @@ function PontosAnteriores({ alunoId }) {
     const n = inteiro(valor);
     let ok = true;
     if (n > 0) {
-      ok = !!(await salvar("BuddyCoins", {
+      ok = !!(await salvar("Pontos", {
         id: existente ? existente.id : undefined,
         data: existente ? existente.data : hojeIso(),
         alunoId,
@@ -147,7 +147,7 @@ function PontosAnteriores({ alunoId }) {
         registradoPor: user ? user.email : "",
       }));
     } else if (existente) {
-      ok = !!(await excluir("BuddyCoins", existente.id));
+      ok = !!(await excluir("Pontos", existente.id));
     }
     setOcupado(false);
     setMsg(ok ? "BuddyCoins salvos." : "");

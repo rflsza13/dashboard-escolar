@@ -219,7 +219,7 @@ export default function Relatorios() {
             <CardKpi
               titulo="Conversão Exp."
               valor={`${m.taxaConversaoExp}%`}
-              detalhe={`${m.matriculadosExp} alunos de ${m.totalExp} exp.`}
+              detalhe={`${m.matriculadosExp} matriculados · ${m.expRealizadas} realizadas · ${m.totalExp} marcadas`}
               icone={IoRibbonOutline}
               cor="#FFB547"
             />

@@ -57,7 +57,7 @@ const VALORES = {
   'Feriados.aula': ['', 'Sim', 'Não'],
   'Aulas.modalidade': ['', 'Presencial', 'Online'],
   'Matriculas.status': ['Ativa', 'Concluída', 'Trancada', 'Saiu', 'Experimental'],
-  'Movimentacoes.tipo': ['Entrada', 'Saída', 'Trancamento', 'Retorno', 'Conclusão', 'Troca de horário'],
+  'Movimentacoes.tipo': ['Entrada', 'Saída', 'Trancamento', 'Retorno', 'Conclusão', 'Troca de horário', 'Certificado'],
   'Avaliacoes.tipo': ['Final'],
   'Avaliacoes.conceito': ['Excelente', 'Muito bom', 'Bom', 'Regular', 'Precisa melhorar'],
   'Matriculas.modalidade': ['Presencial', 'Online'],
@@ -158,6 +158,9 @@ function executar(req, u) {
       exigir(u, PERFIS_OPERACAO);
       exigirAreaDoCurso(u, req.cursoId);
       return criarExperimental(req, u);
+    case 'converterExperimental':
+      exigir(u, PERFIS_GESTAO);
+      return converterExperimental(req, u);
     case 'movimentar':
       exigir(u, PERFIS_GESTAO);
       return movimentar(req, u);
@@ -768,6 +771,21 @@ function resgatar(alunoId, premioId, u) {
   return { ok: true, mudancas: { pontos: [reg] } };
 }
 
+// "João  da Silva" e "joao da silva" são o mesmo nome
+function normalizarNome(t) {
+  return String(t || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/\s+/g, ' ').trim();
+}
+function soDigitos(t) { return String(t || '').replace(/\D/g, ''); }
+function acharAlunoPorNome(alunos, nome, contato) {
+  const n = normalizarNome(nome);
+  if (!n) return null;
+  const iguais = alunos.filter(function (a) { return normalizarNome(a.nome) === n; });
+  if (iguais.length <= 1) return iguais[0] || null;
+  const c = soDigitos(contato);
+  const peloContato = c ? iguais.filter(function (a) { return soDigitos(a.contato) === c; }) : [];
+  return peloContato[0] || iguais.filter(function (a) { return String(a.ativo) === 'Sim'; })[0] || iguais[0];
+}
+
 function criarExperimental(req, u) {
   if (!req.nome || !String(req.nome).trim()) throw falha('VALIDACAO', 'Informe o nome do aluno.');
   if (!/^\d{4}-\d{2}-\d{2}$/.test(req.data || '')) throw falha('VALIDACAO', 'Data inválida.');
@@ -777,18 +795,70 @@ function criarExperimental(req, u) {
   const modalidade = req.modalidade === 'Online' ? 'Online' : 'Presencial';
   const professorId = String(req.professorId || '').trim();
   if (professorId && !lerTabela('Professores').registros.some(function (p) { return p.id === professorId; })) throw falha('VALIDACAO', 'Professor não encontrado.');
-  const aluno = salvarRegistro('Alunos', { nome: String(req.nome).trim(), responsavel: '', contato: req.contato || '', ativo: 'Não', obs: 'Aula experimental' }, u);
-  const mat = salvarRegistro('Matriculas', {
-    alunoId: aluno.id, cursoId: curso.id, dia: siglaDia(req.data), inicio: req.hora, duracao: Number(req.duracao) || 60,
-    modalidade: modalidade, moduloAtual: 1, dataInicio: req.data, status: 'Experimental', obs: ''
-  }, u);
-  const aula = salvarRegistro('Aulas', {
+
+  // se o aluno já foi cadastrado (ex.: marcou a experimental e não veio), reaproveita o cadastro em vez de duplicar
+  let aluno = acharAlunoPorNome(lerTabela('Alunos').registros, req.nome, req.contato);
+  const reaproveitado = !!aluno;
+  const mats = lerTabela('Matriculas').registros;
+  if (aluno) {
+    if (mats.some(function (m) { return m.alunoId === aluno.id && m.cursoId === curso.id && (m.status === 'Ativa' || m.status === 'Trancada'); })) {
+      throw falha('VALIDACAO', 'Este aluno já está matriculado neste curso. Use "Aula avulsa" para marcar uma aula extra.');
+    }
+    if (req.contato && !String(aluno.contato || '').trim()) aluno = salvarRegistro('Alunos', Object.assign({}, aluno, { contato: String(req.contato) }), u);
+  } else {
+    aluno = salvarRegistro('Alunos', { nome: String(req.nome).trim(), responsavel: '', contato: req.contato || '', ativo: 'Não', obs: 'Aula experimental' }, u);
+  }
+  const dadosMat = { cursoId: curso.id, dia: siglaDia(req.data), inicio: req.hora, duracao: Number(req.duracao) || 60, modalidade: modalidade, moduloAtual: 1, dataInicio: req.data };
+  const existente = mats.find(function (m) { return m.alunoId === aluno.id && m.cursoId === curso.id && m.status === 'Experimental'; });
+  const mat = existente
+    ? salvarRegistro('Matriculas', Object.assign({}, existente, dadosMat), u)
+    : salvarRegistro('Matriculas', Object.assign({ alunoId: aluno.id, status: 'Experimental', obs: '' }, dadosMat), u);
+  // aula experimental ainda sem marcação: só muda data e hora; se já tem presença/falta, vira uma nova aula (o histórico fica)
+  const pendente = lerTabela('Aulas').registros.find(function (a) { return a.matriculaId === mat.id && a.tipo === 'Experimental' && !a.status; });
+  const aula = salvarRegistro('Aulas', Object.assign({}, pendente || {}, {
     data: req.data, matriculaId: mat.id, status: '', tipo: 'Experimental', hora: req.hora, modalidade: '', modulo: 1, reposicaoDe: '', obs: '', professorId: professorId
-  }, u);
-  return { ok: true, mudancas: { alunos: [aluno], matriculas: [mat], aulas: [aula] } };
+  }), u);
+  return { ok: true, reaproveitado: reaproveitado, mudancas: { alunos: [aluno], matriculas: [mat], aulas: [aula] } };
+}
+
+// Converte a aula experimental em matrícula de verdade: ativa a matrícula, define o dia/horário semanal, ativa o aluno e registra a entrada
+function converterExperimental(req, u) {
+  const mat = lerTabela('Matriculas').registros.find(function (m) { return m.id === req.matriculaId; });
+  if (!mat) throw falha('ERRO', 'Matrícula não encontrada.');
+  if (mat.status !== 'Experimental') throw falha('VALIDACAO', 'Só dá para converter matrículas em aula experimental.');
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(req.dataInicio || '')) throw falha('VALIDACAO', 'Informe a data de início.');
+  if (!/^\d{1,2}:\d{2}$/.test(req.inicio || '')) throw falha('VALIDACAO', 'Informe o horário da aula.');
+  if (['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom'].indexOf(req.dia) === -1) throw falha('VALIDACAO', 'Escolha o dia da semana.');
+  const nova = salvarRegistro('Matriculas', Object.assign({}, mat, {
+    dia: req.dia, inicio: req.inicio, duracao: 90, modalidade: req.modalidade === 'Online' ? 'Online' : 'Presencial', moduloAtual: 1, dataInicio: req.dataInicio, status: 'Ativa'
+  }), u);
+  const alunos = [];
+  const aluno = lerTabela('Alunos').registros.find(function (x) { return x.id === mat.alunoId; });
+  if (aluno) alunos.push(salvarRegistro('Alunos', Object.assign({}, aluno, { ativo: 'Sim', obs: aluno.obs === 'Aula experimental' ? '' : aluno.obs }), u));
+  const movimentacoes = [salvarRegistro('Movimentacoes', { data: hojeIso(), alunoId: mat.alunoId, matriculaId: mat.id, tipo: 'Entrada', motivo: 'Conversão de aula experimental', obs: '', registradoPor: u.email }, u)];
+  return { ok: true, mudancas: { matriculas: [nova], alunos: alunos, movimentacoes: movimentacoes } };
 }
 
 /* ---------- atualização de uma planilha já em uso ---------- */
+
+// Rode UMA vez (botão Executar) se aparecer "Valor inválido - Escolha um valor da lista" ao salvar.
+// Refaz as listas suspensas da planilha com os valores que o sistema usa (ex.: a situação "Saiu" da matrícula).
+function corrigirValidacoes() {
+  const ss = planilha();
+  const ATE = 500;
+  const feitos = [];
+  Object.keys(VALORES).forEach(function (chave) {
+    const p = chave.split('.');
+    const sh = ss.getSheetByName(p[0]);
+    if (!sh || !SCHEMA[p[0]]) return;
+    const col = SCHEMA[p[0]].findIndex(function (c) { return c[0] === p[1]; }) + 1;
+    if (col < 1) return;
+    const lista = VALORES[chave].filter(function (v) { return v !== ''; });
+    sh.getRange(2, col, ATE - 1, 1).setDataValidation(SpreadsheetApp.newDataValidation().requireValueInList(lista, true).setAllowInvalid(false).build());
+    feitos.push(chave);
+  });
+  Logger.log('Listas atualizadas: ' + feitos.join(', '));
+}
 
 // Rode UMA vez (botão Executar) se a sua planilha foi criada antes dos professores e do grupo da legenda.
 // Cria as abas Professores e Escala e a coluna "Grupo (legenda)" em Cursos, sem mexer nos seus dados.
@@ -828,6 +898,7 @@ function prepararNovidades() {
   }
   garantirColunasNovas();
   Object.keys(ABAS_AUTO).forEach(function (n) { criarAba(n); });
+  corrigirValidacoes();
   const escala = ss.getSheetByName('Escala');
   if (escala) {
     escala.getRange(2, 6, ATE - 1, 1).clearDataValidations();

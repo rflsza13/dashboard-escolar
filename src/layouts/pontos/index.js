@@ -64,7 +64,7 @@ function Pontos() {
 
   const podeApagar = (p) => pode.admin || (pode.professor && p.tipo === "Ganho (manual)");
   const apagar = (p) => {
-    if (window.confirm(`Excluir este lançamento (${p.descricao || p.tipo}, ${p.pontos} ponto(s))?`)) excluir("BuddyCoins", p.id);
+    if (window.confirm(`Excluir este lançamento (${p.descricao || p.tipo}, ${p.pontos} ponto(s))?`)) excluir("Pontos", p.id);
   };
 
   const alunosAtivos = dados.alunos.filter((a) => a.ativo !== "Não");
@@ -202,12 +202,12 @@ function Pontos() {
         titulo="Lançar pontos"
         descricao="BuddyCoins extras, por exemplo por participação ou desempenho. Os pontos de módulo concluído entram sozinhos."
         campos={[
-          { chave: "alunoId", rotulo: "Aluno", tipo: "select", obrigatorio: true, cheia: true, opcoes: alunosAtivos.map((a) => ({ valor: a.id, rotulo: a.nome })) },
+          { chave: "alunoId", rotulo: "Pesquisar aluno", tipo: "busca", obrigatorio: true, cheia: true, opcoes: alunosAtivos.map((a) => ({ valor: a.id, rotulo: a.nome, detalhe: `Saldo: ${saldoDe(a.id)} BuddyCoins` })) },
           { chave: "pontos", rotulo: "BuddyCoins", tipo: "numero", min: 1, inteira: true, obrigatorio: true },
           { chave: "descricao", rotulo: "Motivo", obrigatorio: true, cheia: true },
         ]}
         onSalvar={async (v) =>
-          !!(await salvar("BuddyCoins", { data: hojeIso(), alunoId: v.alunoId, tipo: "Ganho (manual)", pontos: v.pontos, descricao: v.descricao, moduloId: "", registradoPor: user ? user.email : "" }))
+          !!(await salvar("Pontos", { data: hojeIso(), alunoId: v.alunoId, tipo: "Ganho (manual)", pontos: v.pontos, descricao: v.descricao, moduloId: "", registradoPor: user ? user.email : "" }))
         }
         onClose={() => setLancar(false)}
       />
@@ -218,7 +218,7 @@ function Pontos() {
         descricao="Desconta os pontos do aluno e registra o resgate no histórico."
         textoSalvar="Resgatar"
         campos={[
-          { chave: "alunoId", rotulo: "Aluno", tipo: "select", obrigatorio: true, cheia: true, opcoes: alunosAtivos.map((a) => ({ valor: a.id, rotulo: `${a.nome} (saldo ${saldoDe(a.id)})` })) },
+          { chave: "alunoId", rotulo: "Pesquisar aluno", tipo: "busca", obrigatorio: true, cheia: true, opcoes: alunosAtivos.map((a) => ({ valor: a.id, rotulo: a.nome, detalhe: `Saldo: ${saldoDe(a.id)} BuddyCoins` })) },
           { chave: "premioId", rotulo: "Prêmio", tipo: "select", obrigatorio: true, cheia: true, opcoes: premiosAtivos.map((p) => ({ valor: p.id, rotulo: `${p.nome} (${p.custo} pts)` })) },
         ]}
         onSalvar={async (v) => {

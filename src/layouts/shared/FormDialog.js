@@ -12,6 +12,7 @@ import VuiInput from "components/VuiInput";
 import VuiButton from "components/VuiButton";
 
 import { FieldLabel, NativeSelect, dialogPaper } from "layouts/shared/fields";
+import BuscaSelecao from "layouts/shared/BuscaSelecao";
 
 const num = (v) => {
   const s = String(v).trim();
@@ -20,7 +21,7 @@ const num = (v) => {
 };
 
 /*
-  campos: [{ chave, rotulo, tipo: texto|numero|data|hora|select|cor, opcoes: [{valor, rotulo}], sugestoes: [texto], obrigatorio, min, inteira }]
+  campos: [{ chave, rotulo, tipo: texto|numero|data|hora|select|busca|cor, opcoes: [{valor, rotulo}], sugestoes: [texto], obrigatorio, min, inteira }]
   Chamamos onSalvar(valores) com os números já convertidos; se devolver false, o diálogo continua aberto.
 */
 function FormDialog({ open, titulo, descricao, campos, inicial, textoSalvar, onSalvar, onExcluir, onClose }) {
@@ -100,6 +101,9 @@ function FormDialog({ open, titulo, descricao, campos, inicial, textoSalvar, onS
           ))}
         </NativeSelect>
       );
+    } else if (c.tipo === "busca") {
+      // pesquisa por nome (opcoes: [{ valor, rotulo, detalhe }]) em vez de uma lista com todos
+      entrada = <BuscaSelecao opcoes={c.opcoes || []} value={v[c.chave] || ""} onChange={(x) => setV((y) => ({ ...y, [c.chave]: x }))} placeholder={c.placeholder} erro={Boolean(erro)} />;
     } else if (c.tipo === "cor") {
       entrada = (
         <VuiBox display="flex" alignItems="center" gap="10px">

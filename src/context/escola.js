@@ -7,7 +7,7 @@ import { DEFAULT_CONFIG, PERFIS_GESTAO, PERFIS_INSTRUTOR, apenasArea, areaDoPerf
 const EscolaContext = createContext();
 EscolaContext.displayName = "EscolaContext";
 
-const CHAVE = { Alunos: "alunos", Professores: "professores", Escala: "escala", Cursos: "cursos", Modulos: "modulos", Matriculas: "matriculas", Aulas: "aulas", Progresso: "progresso", Pontos: "BuddyCoins", Premios: "premios", Migracao: "migracao", Movimentacoes: "movimentacoes", Avaliacoes: "avaliacoes", Feriados: "feriados", Ferias: "ferias" };
+const CHAVE = { Alunos: "alunos", Professores: "professores", Escala: "escala", Cursos: "cursos", Modulos: "modulos", Matriculas: "matriculas", Aulas: "aulas", Progresso: "progresso", Pontos: "pontos", Premios: "premios", Migracao: "migracao", Movimentacoes: "movimentacoes", Avaliacoes: "avaliacoes", Feriados: "feriados", Ferias: "ferias" };
 const PREFIXO = { Alunos: "A", Professores: "PRF", Escala: "ESC", Cursos: "C", Modulos: "MOD", Matriculas: "MAT", Aulas: "AUL", Progresso: "PRG", Pontos: "P", Premios: "PR", Migracao: "MIG", Movimentacoes: "MOV", Avaliacoes: "AVA", Feriados: "FER", Ferias: "FRS" };
 const VAZIO = { alunos: [], professores: [], escala: [], cursos: [], modulos: [], matriculas: [], aulas: [], progresso: [], pontos: [], premios: [], migracao: [], movimentacoes: [], avaliacoes: [], feriados: [], ferias: [], config: DEFAULT_CONFIG };
 
@@ -308,6 +308,8 @@ export function EscolaProvider({ children }) {
   const salvarNotaModulo = useCallback((form) => composto(() => api.notaModulo(tokenRef.current, form)), [composto]);
 
   const criarExperimental = useCallback((form) => composto(() => api.criarExperimental(tokenRef.current, form)), [composto]);
+  // converte a aula experimental em matrícula (ativa a matrícula e o aluno, define o dia e horário semanais)
+  const converterExperimental = useCallback((form) => composto(() => api.converterExperimental(tokenRef.current, form)), [composto]);
 
   /* ----- marcações da grade ----- */
   const moduloDa = useCallback((matriculaId) => {
@@ -410,6 +412,7 @@ export function EscolaProvider({ children }) {
       concluirModulo,
       resgatar,
       criarExperimental,
+      converterExperimental,
       movimentar,
       salvarAvaliacaoFinal,
       salvarNotaModulo,
@@ -417,7 +420,7 @@ export function EscolaProvider({ children }) {
       toast,
       fecharToast,
     };
-  }, [state, entrar, sair, carregar, limparErro, salvar, excluir, marcarSessao, agendarReposicao, concluirModulo, resgatar, criarExperimental, movimentar, salvarAvaliacaoFinal, salvarNotaModulo, salvarConfig, toast, fecharToast, dadosVisiveis]);
+  }, [state, entrar, sair, carregar, limparErro, salvar, excluir, marcarSessao, agendarReposicao, concluirModulo, resgatar, criarExperimental, converterExperimental, movimentar, salvarAvaliacaoFinal, salvarNotaModulo, salvarConfig, toast, fecharToast, dadosVisiveis]);
 
   return <EscolaContext.Provider value={value}>{children}</EscolaContext.Provider>;
 }

@@ -778,6 +778,86 @@ export function deduzirGenero(aluno) {
   return "Não informado";
 }
 
+/* ---------- nomes e alunos já cadastrados ---------- */
+// "João  da Silva" e "joao da silva" são o mesmo nome
+export const normalizarNome = (t) =>
+  String(t || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/\s+/g, " ")
+    .trim();
+const soDigitos = (t) => String(t || "").replace(/\D/g, "");
+
+// Procura um aluno já cadastrado com o mesmo nome (e, havendo mais de um, o mesmo contato)
+export function acharAlunoPorNome(alunos, nome, contato) {
+  const n = normalizarNome(nome);
+  if (!n) return null;
+  const iguais = (alunos || []).filter((a) => normalizarNome(a.nome) === n);
+  if (iguais.length <= 1) return iguais[0] || null;
+  const c = soDigitos(contato);
+  const peloContato = c ? iguais.filter((a) => soDigitos(a.contato) === c) : [];
+  return peloContato[0] || iguais.find((a) => a.ativo === "Sim") || iguais[0];
+}
+
+/* ---------- fim de curso e certificados ---------- */
+// "Perto do fim": já cursou pelo menos esta fração dos módulos, ou está no último módulo
+export const LIMITE_FIM_CURSO = 0.8;
+// Certificados: avisa das conclusões dos últimos N dias que ainda não tiveram o certificado emitido
+export const DIAS_ALERTA_CERTIFICADO = 90;
+export const TIPO_CERTIFICADO = "Certificado";
+
+// Matrículas ativas com o curso chegando ao fim (as mais perto de acabar primeiro)
+export function cursosNoFim(dados) {
+  const alunos = mapa(dados.alunos);
+  const cursos = mapa(dados.cursos);
+  return (dados.matriculas || [])
+    .filter((m) => m.status === "Ativa")
+    .map((m) => ({ mat: m, prog: progressoMatricula(dados, m) }))
+    .filter(({ prog }) => prog.total > 0 && prog.total - prog.concluidos >= 1 && (prog.total - prog.concluidos === 1 || prog.pct >= LIMITE_FIM_CURSO))
+    .map(({ mat, prog }) => ({
+      matriculaId: mat.id,
+      alunoId: mat.alunoId,
+      aluno: (alunos[mat.alunoId] || {}).nome || "Aluno removido",
+      curso: (cursos[mat.cursoId] || {}).nome || "Curso removido",
+      cor: corValida((cursos[mat.cursoId] || {}).cor, "#E3242B"),
+      concluidos: prog.concluidos,
+      total: prog.total,
+      restantes: prog.total - prog.concluidos,
+      pct: prog.pct,
+      moduloAtual: prog.atual ? prog.atual.modulo.nome : "",
+    }))
+    .sort((a, b) => a.restantes - b.restantes || b.pct - a.pct || a.aluno.localeCompare(b.aluno, "pt-BR"));
+}
+
+// Cursos concluídos recentemente cujo certificado ainda não foi emitido (o "emitido" fica na aba Movimentacoes, tipo Certificado)
+export function certificadosPendentes(dados, hoje, dias = DIAS_ALERTA_CERTIFICADO) {
+  const alunos = mapa(dados.alunos);
+  const cursos = mapa(dados.cursos);
+  const corte = somarDias(hoje, -dias);
+  const movs = dados.movimentacoes || [];
+  const emitidos = new Set(movs.filter((x) => x.tipo === TIPO_CERTIFICADO).map((x) => x.matriculaId));
+  return (dados.matriculas || [])
+    .filter((m) => m.status === "Concluída" && !emitidos.has(m.id))
+    .map((m) => {
+      const datas = [
+        ...movs.filter((x) => x.matriculaId === m.id && x.tipo === "Conclusão").map((x) => x.data),
+        ...(dados.progresso || []).filter((p) => p.matriculaId === m.id).map((p) => p.concluidoEm),
+      ].filter(Boolean);
+      const concluidoEm = datas.sort().pop() || "";
+      return {
+        matriculaId: m.id,
+        alunoId: m.alunoId,
+        aluno: (alunos[m.alunoId] || {}).nome || "Aluno removido",
+        curso: (cursos[m.cursoId] || {}).nome || "Curso removido",
+        cor: corValida((cursos[m.cursoId] || {}).cor, "#E3242B"),
+        concluidoEm,
+      };
+    })
+    .filter((x) => x.concluidoEm && x.concluidoEm >= corte)
+    .sort((a, b) => String(b.concluidoEm).localeCompare(String(a.concluidoEm)));
+}
+
 export function calcularMetricasGerais(dados, diasFiltro = null) {
   const hoje = hojeIso();
   const dataCorte = diasFiltro ? somarDias(hoje, -diasFiltro) : null;
@@ -794,7 +874,7 @@ export function calcularMetricasGerais(dados, diasFiltro = null) {
   const alunosInativos = todosAlunos.filter((a) => a.ativo === "Não");
 
   const matAtivas = matriculas.filter((m) => m.status === "Ativa");
-  const matInativas = matriculas.filter((m) => m.status === "Inativa" || m.status === "Cancelada");
+  const matInativas = matriculas.filter((m) => m.status === "Saiu" || m.status === "Inativa" || m.status === "Cancelada");
   const totalMat = matAtivas.length + matInativas.length;
   const taxaEvasao = totalMat > 0 ? (matInativas.length / totalMat) * 100 : 0;
   const taxaRetencao = 100 - taxaEvasao;
@@ -896,7 +976,7 @@ export function calcularMetricasGerais(dados, diasFiltro = null) {
     const mediaNota = avalsCurso.length > 0 ? Math.round((avalsCurso.reduce((s, av) => s + Number(av.nota), 0) / avalsCurso.length) * 10) / 10 : null;
 
     // Módulos concluídos
-    const concluidos = progresso.filter((p) => matIds.has(p.matriculaId) && p.concluido && (!dataCorte || (p.dataConclusao && p.dataConclusao >= dataCorte))).length;
+    const concluidos = progresso.filter((p) => matIds.has(p.matriculaId) && (!dataCorte || (p.concluidoEm && p.concluidoEm >= dataCorte))).length;
 
     return {
       cursoId: c.id,
@@ -909,17 +989,26 @@ export function calcularMetricasGerais(dados, diasFiltro = null) {
     };
   });
 
-  // 6. Conversão de Aulas Experimentais
-  const expNoPeriodo = dataCorte
-    ? aulas.filter((a) => a.tipo === "Experimental" && a.data >= dataCorte && a.data <= hoje)
-    : aulas.filter((a) => a.tipo === "Experimental" && a.data <= hoje);
-
-  const totalExp = expNoPeriodo.length;
-  // Conta quantos visitantes viraram matriculados ativos
-  const matriculadosExp = expNoPeriodo.filter((a) => {
-    const al = todosAlunos.find((aluno) => aluno.id === a.alunoId);
-    return al && al.ativo === "Sim" && matriculas.some((m) => m.alunoId === al.id && m.status === "Ativa");
-  }).length;
+  // 6. Aulas experimentais: visitantes com aula marcada no período e quantos viraram matrícula
+  // (a aula de uma matrícula guarda a matrícula, não o aluno; por isso a ligação é feita por matriculaId)
+  const matPorId = mapa(matriculas);
+  const expPorAluno = {};
+  aulas.forEach((a) => {
+    if (a.tipo !== "Experimental" || a.status === "Cancelada" || !a.data) return;
+    if (dataCorte && a.data < dataCorte) return;
+    const m = matPorId[a.matriculaId];
+    if (!m) return;
+    const e = expPorAluno[m.alunoId] || (expPorAluno[m.alunoId] = { primeira: a.data, realizada: false });
+    if (a.data < e.primeira) e.primeira = a.data;
+    if (ehPresenca(a.status)) e.realizada = true;
+  });
+  const idsExp = Object.keys(expPorAluno);
+  const totalExp = idsExp.length;
+  const expRealizadas = idsExp.filter((id) => expPorAluno[id].realizada).length;
+  // matriculado = tem matrícula de verdade (não experimental) começando na data da experimental ou depois
+  const matriculadosExp = idsExp.filter((id) =>
+    matriculas.some((m) => m.alunoId === id && ["Ativa", "Concluída", "Trancada", "Saiu"].includes(m.status) && (!m.dataInicio || m.dataInicio >= expPorAluno[id].primeira))
+  ).length;
   const taxaConversaoExp = totalExp > 0 ? Math.round((matriculadosExp / totalExp) * 100) : 0;
 
   // 7. Alunos em Risco de Evasão (ativos com 2+ faltas recentes sem reposição)
@@ -974,6 +1063,7 @@ export function calcularMetricasGerais(dados, diasFiltro = null) {
     totalAulasMarcadas: totalMarcadas,
     performanceCursos,
     totalExp,
+    expRealizadas,
     matriculadosExp,
     taxaConversaoExp,
     alunosRisco,

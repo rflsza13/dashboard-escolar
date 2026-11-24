@@ -11,7 +11,7 @@ import DashboardLayout from "examples/LayoutContainers/DashboardLayout";
 import { IoChevronBack, IoChevronForward, IoAdd } from "react-icons/io5";
 
 import { useEscola } from "context/escola";
-import { CAT_INGLES, CAT_PROGRAMACAO, DEFAULT_CONFIG, DIAS_GRADE, ROTULO_CATEGORIA, barraDoStatus, fimDaAula, formatarData, formatarDataCurta, hojeIso, feriadoDaData, legendaDeCursos, misturarCor, montarSessoes, segundaDaSemana, somarDias } from "utils/escola";
+import { CAT_INGLES, CAT_PROGRAMACAO, DEFAULT_CONFIG, DIAS_GRADE, DIAS_LONGOS, ROTULO_CATEGORIA, siglaDia, barraDoStatus, fimDaAula, formatarData, formatarDataCurta, hojeIso, feriadoDaData, legendaDeCursos, misturarCor, montarSessoes, segundaDaSemana, somarDias } from "utils/escola";
 
 import BarraStatus from "layouts/shared/BarraStatus";
 import AulaDialog from "layouts/shared/AulaDialog";
@@ -130,31 +130,58 @@ function Horario() {
 
   const dias = useMemo(() => DIAS_GRADE.map((_, i) => somarDias(segunda, i)), [segunda]);
 
+  // Visão: só o dia (começa em hoje, deixa mais espaço para os cards) ou a semana completa.
+  // No celular já é uma lista por dia, então lá vale sempre a semana (com as abas de dia).
+  const [visao, setVisao] = useState("dia");
+  const [diaSel, setDiaSel] = useState(hojeIso());
+  const usarSemana = isMobile || visao === "semana";
+  const diasVisiveis = useMemo(() => (usarSemana ? dias : [diaSel]), [usarSemana, dias, diaSel]);
+
   // Tab mobile: qual dia está selecionado (índice 0-5)
   const diaHojeIdx = dias.indexOf(hojeIso());
   const [tabDia, setTabDia] = useState(diaHojeIdx >= 0 ? diaHojeIdx : 0);
 
-  const todas = useMemo(() => montarSessoes(dados, dias[0], dias[5], { comCanceladas: true }).filter((s) => s.categoria === cursoFiltro), [dados, dias, cursoFiltro]);
+  const todas = useMemo(
+    () => montarSessoes(dados, diasVisiveis[0], diasVisiveis[diasVisiveis.length - 1], { comCanceladas: true }).filter((s) => s.categoria === cursoFiltro),
+    [dados, diasVisiveis, cursoFiltro]
+  );
   const sessoes = useMemo(() => todas.filter((s) => !s.cancelada), [todas]);
   const canceladas = useMemo(() => todas.filter((s) => s.cancelada), [todas]);
-  const feriadosSemana = useMemo(() => dias.map((d) => feriadoDaData(dados, d)), [dados, dias]);
+  const feriadosSemana = useMemo(() => diasVisiveis.map((d) => feriadoDaData(dados, d)), [dados, diasVisiveis]);
 
   const legenda = useMemo(() => legendaDeCursos(dados.cursos), [dados.cursos]);
   const semanaAtual = segunda === segundaDaSemana(hojeIso());
 
-  const irSemanaAnterior = () => {
-    setSegunda(somarDias(segunda, -7));
-    setTabDia(0);
+  // pula o domingo ao andar dia a dia (a grade vai de segunda a sábado)
+  const passoDia = (d, n) => {
+    const x = somarDias(d, n);
+    return siglaDia(x) === "Dom" ? somarDias(x, n) : x;
   };
-  const irProximaSemana = () => {
-    setSegunda(somarDias(segunda, 7));
-    setTabDia(0);
+  const irAnterior = () => {
+    if (usarSemana) {
+      setSegunda(somarDias(segunda, -7));
+      setTabDia(0);
+    } else setDiaSel(passoDia(diaSel, -1));
+  };
+  const irProxima = () => {
+    if (usarSemana) {
+      setSegunda(somarDias(segunda, 7));
+      setTabDia(0);
+    } else setDiaSel(passoDia(diaSel, 1));
   };
   const irHoje = () => {
     setSegunda(segundaDaSemana(hojeIso()));
+    setDiaSel(hojeIso());
     const idx = dias.indexOf(hojeIso());
     setTabDia(idx >= 0 ? idx : 0);
   };
+  const trocarVisao = (v) => {
+    if (v === visao) return;
+    if (v === "semana") setSegunda(segundaDaSemana(diaSel));
+    else setDiaSel(dias.includes(hojeIso()) ? hojeIso() : dias[0]);
+    setVisao(v);
+  };
+  const noPresente = usarSemana ? semanaAtual : diaSel === hojeIso();
 
   return (
     <DashboardLayout>
@@ -167,18 +194,27 @@ function Horario() {
               Horário das aulas
             </VuiTypography>
             <VuiTypography variant="button" color="text" fontWeight="regular">
-              {formatarData(dias[0])} a {formatarData(dias[5])}
-              {semanaAtual ? " · semana atual" : ""}
+              {usarSemana ? (
+                <>
+                  {formatarData(dias[0])} a {formatarData(dias[5])}
+                  {semanaAtual ? " · semana atual" : ""}
+                </>
+              ) : (
+                <>
+                  {DIAS_LONGOS[siglaDia(diaSel)]}, {formatarData(diaSel)}
+                  {diaSel === hojeIso() ? " · hoje" : ""}
+                </>
+              )}
             </VuiTypography>
           </VuiBox>
           <VuiBox display="flex" flexWrap="wrap" alignItems="center" gap="8px">
-            <VuiButton size="small" color="info" variant="outlined" onClick={irSemanaAnterior}>
+            <VuiButton size="small" color="info" variant="outlined" onClick={irAnterior}>
               <IoChevronBack size="14px" />
             </VuiButton>
-            <VuiButton size="small" color="info" variant="outlined" disabled={semanaAtual} onClick={irHoje}>
+            <VuiButton size="small" color="info" variant="outlined" disabled={noPresente} onClick={irHoje}>
               Hoje
             </VuiButton>
-            <VuiButton size="small" color="info" variant="outlined" onClick={irProximaSemana}>
+            <VuiButton size="small" color="info" variant="outlined" onClick={irProxima}>
               <IoChevronForward size="14px" />
             </VuiButton>
 
@@ -190,6 +226,24 @@ function Horario() {
             )}
           </VuiBox>
         </VuiBox>
+
+        {/* Visão da grade: dia ou semana completa (no celular a grade já é por dia) */}
+        {!isMobile && (
+          <VuiBox display="flex" alignItems="center" gap="10px" mb={2}>
+            {[["dia", "Dia"], ["semana", "Semana completa"]].map(([v, rotulo]) => (
+              <VuiButton
+                key={v}
+                size="small"
+                color="info"
+                variant={visao === v ? "contained" : "outlined"}
+                onClick={() => trocarVisao(v)}
+                sx={{ borderRadius: "8px", px: 2, py: 0.8, textTransform: "none", fontWeight: visao === v ? "bold" : "regular" }}
+              >
+                {rotulo}
+              </VuiButton>
+            ))}
+          </VuiBox>
+        )}
 
         {/* Abas de categoria (Programação / Inglês) */}
         <VuiBox display="flex" alignItems="center" gap="10px" mb={2}>
@@ -270,7 +324,7 @@ function Horario() {
             /* ── Vista Desktop: grade semanal completa ── */
             <>
               <GradeSemanal
-                dias={dias}
+                dias={diasVisiveis}
                 sessoes={sessoes}
                 feriados={feriadosSemana}
                 onSelecionar={setAula}
@@ -278,7 +332,7 @@ function Horario() {
               />
               {sessoes.length === 0 && (
                 <VuiTypography variant="button" color="text" fontWeight="regular" mt={2} sx={{ display: "block" }}>
-                  Nenhuma aula encontrada para o filtro selecionado nesta semana.
+                  {usarSemana ? "Nenhuma aula encontrada para o filtro selecionado nesta semana." : "Nenhuma aula encontrada para o filtro selecionado neste dia."}
                 </VuiTypography>
               )}
             </>
@@ -288,7 +342,7 @@ function Horario() {
         {canceladas.length > 0 && (
           <Card sx={{ mt: 3 }}>
             <VuiTypography variant="lg" color="white" fontWeight="bold" mb="4px">
-              Aulas canceladas nesta semana
+              {usarSemana ? "Aulas canceladas nesta semana" : "Aulas canceladas neste dia"}
             </VuiTypography>
             <VuiTypography variant="caption" color="text" mb="14px" sx={{ display: "block" }}>
               Elas não aparecem na grade nem contam como falta. Use Restaurar para devolver a aula à grade.
@@ -311,7 +365,7 @@ function Horario() {
       <AulaDialog sessao={aula} onClose={() => setAula(null)} />
       <NovaAulaDialog
         open={nova}
-        dataInicial={novaInicial.data || (dias.includes(hojeIso()) ? hojeIso() : dias[0])}
+        dataInicial={novaInicial.data || (diasVisiveis.includes(hojeIso()) ? hojeIso() : diasVisiveis[0])}
         horaInicial={novaInicial.hora}
         onClose={() => setNova(false)}
       />

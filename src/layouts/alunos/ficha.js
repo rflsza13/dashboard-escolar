@@ -19,6 +19,7 @@ import MovimentacaoDialog from "layouts/alunos/components/MovimentacaoDialog";
 import AvaliacaoFinalDialog from "layouts/alunos/components/AvaliacaoFinalDialog";
 import HistoricoMovimentacoes from "layouts/alunos/components/HistoricoMovimentacoes";
 import NotaModuloDialog from "layouts/alunos/components/NotaModuloDialog";
+import ConverterExperimentalDialog from "layouts/alunos/components/ConverterExperimentalDialog";
 import { DIAS_LONGOS, DURACAO_AULA, DURACAO_EXPERIMENTAL, alertasDeRisco, descricaoModulo, faseDoModulo, formatarData, formatarNota, frequenciaAcumulada, indexarAulas, resumoAluno, rotuloSituacao, serieMensal, faltasSemReposicao, hojeIso } from "utils/escola";
 
 import BarraStatus from "layouts/shared/BarraStatus";
@@ -44,6 +45,7 @@ function FichaAluno() {
   const [movDlg, setMovDlg] = useState({ open: false, tipo: "Saída", itens: [] });
   const [avalDlg, setAvalDlg] = useState({ open: false, item: null });
   const [notaDlg, setNotaDlg] = useState({ open: false, item: null });
+  const [convDlg, setConvDlg] = useState({ open: false, matricula: null, curso: "" });
 
   const aluno = dados.alunos.find((a) => a.id === id);
   const idx = useMemo(() => indexarAulas(dados), [dados]);
@@ -243,9 +245,18 @@ function FichaAluno() {
                   </VuiTypography>
 
                   {m.status === "Experimental" ? (
-                    <VuiTypography variant="button" color="text" fontWeight="regular" sx={{ display: "block", mt: 2 }}>
-                      Aula experimental. Para matricular o aluno de vez, edite esta matrícula e mude a situação para Ativa (e marque o aluno como ativo).
-                    </VuiTypography>
+                    <>
+                      <VuiTypography variant="button" color="text" fontWeight="regular" sx={{ display: "block", mt: 2 }}>
+                        Aula experimental. Quando o aluno decidir se matricular, converta: ele fica ativo e as aulas semanais entram na grade.
+                      </VuiTypography>
+                      {pode.admin && (
+                        <VuiBox mt={1.5}>
+                          <VuiButton size="small" color="success" variant="contained" onClick={() => setConvDlg({ open: true, matricula: m, curso: curso.nome })}>
+                            Converter em matrícula
+                          </VuiButton>
+                        </VuiBox>
+                      )}
+                    </>
                   ) : (
                     <>
                       <VuiTypography variant="button" color="white" fontWeight="medium" sx={{ display: "block", mt: 2, mb: 1.5 }}>
@@ -469,6 +480,7 @@ function FichaAluno() {
       <AlunoDialog open={editar} aluno={aluno} onClose={() => setEditar(false)} />
       <MatriculaDialog open={mat.open} matricula={mat.matricula} alunoId={aluno.id} onClose={() => setMat({ open: false, matricula: null })} />
       <NotaModuloDialog open={notaDlg.open} item={notaDlg.item} onClose={() => setNotaDlg((x) => ({ ...x, open: false }))} />
+      <ConverterExperimentalDialog open={convDlg.open} matricula={convDlg.matricula} nomeAluno={aluno.nome} nomeCurso={convDlg.curso} onClose={() => setConvDlg((x) => ({ ...x, open: false }))} />
       <MovimentacaoDialog open={movDlg.open} tipo={movDlg.tipo} itens={movDlg.itens} onClose={() => setMovDlg((x) => ({ ...x, open: false }))} />
       <AvaliacaoFinalDialog open={avalDlg.open} item={avalDlg.item} existente={avalDlg.item ? avaliacaoDe(avalDlg.item.matricula.id) : undefined} onClose={() => setAvalDlg((x) => ({ ...x, open: false }))} />
     </DashboardLayout>

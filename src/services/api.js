@@ -1,4 +1,4 @@
-import { BONUS_BOM_COMPORTAMENTO, DEFAULT_CONFIG, DIAS_GRADE, hojeIso, novoId, segundaDaSemana, siglaDia, somarDias, saldoDePontos } from "utils/escola";
+import { BONUS_BOM_COMPORTAMENTO, DEFAULT_CONFIG, acharAlunoPorNome, DURACAO_AULA, DIAS_GRADE, hojeIso, novoId, segundaDaSemana, siglaDia, somarDias, saldoDePontos } from "utils/escola";
 
 const URL_SCRIPT = process.env.REACT_APP_SCRIPT_URL;
 export const CLIENT_ID = process.env.REACT_APP_GOOGLE_CLIENT_ID;
@@ -27,6 +27,7 @@ const remoto = {
   concluirModulo: (t, matriculaId, opts = {}) => chamar(t, { action: "concluirModulo", matriculaId, ...opts }),
   resgatar: (t, alunoId, premioId) => chamar(t, { action: "resgatar", alunoId, premioId }),
   criarExperimental: (t, dados) => chamar(t, { action: "criarExperimental", ...dados }),
+  converterExperimental: (t, dados) => chamar(t, { action: "converterExperimental", ...dados }),
   salvarConfig: (t, config) => chamar(t, { action: "salvarConfig", config }),
   movimentar: (t, form) => chamar(t, { action: "movimentar", ...form }),
   avaliacaoFinal: (t, form) => chamar(t, { action: "avaliacaoFinal", ...form }),
@@ -318,12 +319,45 @@ const demo = {
   },
   criarExperimental: async (t, f) => {
     const db = ler();
+    const d = db.dados;
     if (!f.nome || !f.nome.trim()) throw erro("Informe o nome do aluno.");
-    const aluno = upsert(db, "Alunos", { nome: f.nome.trim(), responsavel: "", contato: f.contato || "", ativo: "Não", obs: "Aula experimental" });
-    const mat = upsert(db, "Matriculas", { alunoId: aluno.id, cursoId: f.cursoId, dia: siglaDia(f.data), inicio: f.hora, duracao: 60, modalidade: f.modalidade === "Online" ? "Online" : "Presencial", moduloAtual: 1, dataInicio: f.data, status: "Experimental", obs: "" });
-    const aula = upsert(db, "Aulas", { data: f.data, matriculaId: mat.id, status: "", tipo: "Experimental", hora: f.hora, modalidade: "", modulo: 1, reposicaoDe: "", obs: "", professorId: f.professorId || "" });
+    const modalidade = f.modalidade === "Online" ? "Online" : "Presencial";
+    // se o aluno já foi cadastrado (ex.: marcou e não veio), reaproveita o cadastro em vez de duplicar
+    let aluno = acharAlunoPorNome(d.alunos, f.nome, f.contato);
+    const reaproveitado = !!aluno;
+    if (aluno) {
+      if (d.matriculas.some((m) => m.alunoId === aluno.id && m.cursoId === f.cursoId && ["Ativa", "Trancada"].includes(m.status))) {
+        throw erro("Este aluno já está matriculado neste curso. Use “Aula avulsa” para marcar uma aula extra.");
+      }
+      if (f.contato && !String(aluno.contato || "").trim()) aluno = upsert(db, "Alunos", { ...aluno, contato: f.contato });
+    } else {
+      aluno = upsert(db, "Alunos", { nome: f.nome.trim(), responsavel: "", contato: f.contato || "", ativo: "Não", obs: "Aula experimental" });
+    }
+    const base = { cursoId: f.cursoId, dia: siglaDia(f.data), inicio: f.hora, duracao: 60, modalidade, moduloAtual: 1, dataInicio: f.data };
+    const matExistente = d.matriculas.find((m) => m.alunoId === aluno.id && m.cursoId === f.cursoId && m.status === "Experimental");
+    const mat = matExistente ? upsert(db, "Matriculas", { ...matExistente, ...base }) : upsert(db, "Matriculas", { alunoId: aluno.id, ...base, status: "Experimental", obs: "" });
+    // aula experimental ainda sem marcação: só muda a data e a hora; se já tem presença/falta, vira uma nova aula (o histórico fica)
+    const aulaPendente = d.aulas.find((a) => a.matriculaId === mat.id && a.tipo === "Experimental" && !a.status);
+    const aula = upsert(db, "Aulas", { ...(aulaPendente || {}), data: f.data, matriculaId: mat.id, status: "", tipo: "Experimental", hora: f.hora, modalidade: "", modulo: 1, reposicaoDe: "", obs: "", professorId: f.professorId || "" });
     gravar(db);
-    return { ok: true, mudancas: { alunos: [aluno], matriculas: [mat], aulas: [aula] } };
+    return { ok: true, reaproveitado, mudancas: { alunos: [aluno], matriculas: [mat], aulas: [aula] } };
+  },
+  converterExperimental: async (t, f) => {
+    const db = ler();
+    const mat = db.dados.matriculas.find((m) => m.id === f.matriculaId);
+    if (!mat) throw erro("Matrícula não encontrada.");
+    if (mat.status !== "Experimental") throw erro("Só dá para converter matrículas em aula experimental.");
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(f.dataInicio || "")) throw erro("Informe a data de início.");
+    if (!/^\d{1,2}:\d{2}$/.test(f.inicio || "")) throw erro("Informe o horário da aula.");
+    if (!["Seg", "Ter", "Qua", "Qui", "Sex", "Sáb", "Dom"].includes(f.dia)) throw erro("Escolha o dia da semana.");
+    const hoje = hojeIso();
+    const nova = upsert(db, "Matriculas", { ...mat, dia: f.dia, inicio: f.inicio, duracao: DURACAO_AULA, modalidade: f.modalidade === "Online" ? "Online" : "Presencial", moduloAtual: 1, dataInicio: f.dataInicio, status: "Ativa" });
+    const aluno = db.dados.alunos.find((x) => x.id === mat.alunoId);
+    const alunos = [];
+    if (aluno) alunos.push(upsert(db, "Alunos", { ...aluno, ativo: "Sim", obs: aluno.obs === "Aula experimental" ? "" : aluno.obs }));
+    const movimentacoes = [upsert(db, "Movimentacoes", { data: hoje, alunoId: mat.alunoId, matriculaId: mat.id, tipo: "Entrada", motivo: "Conversão de aula experimental", obs: "", registradoPor: "demo@escola.local" })];
+    gravar(db);
+    return { ok: true, mudancas: { matriculas: [nova], alunos, movimentacoes } };
   },
 };
 

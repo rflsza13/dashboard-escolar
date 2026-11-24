@@ -17,6 +17,7 @@ import { useEscola } from "context/escola";
 import { BONUS_BOM_COMPORTAMENTO, DIAS_LONGOS, descricaoModulo, lerNota, fimDaAula, formatarData, siglaDia, somarDias, dataDeIso } from "utils/escola";
 import { FieldLabel, NativeSelect, dialogPaper } from "layouts/shared/fields";
 import StatusChip from "layouts/shared/StatusChip";
+import ConverterExperimentalDialog from "layouts/alunos/components/ConverterExperimentalDialog";
 
 function AulaDialog({ sessao, onClose }) {
   const { dados, pode, marcarSessao, agendarReposicao, concluirModulo, salvar, excluir, recursos, toast } = useEscola();
@@ -33,6 +34,7 @@ function AulaDialog({ sessao, onClose }) {
   const [obsModulo, setObsModulo] = useState("");
   const [notaModulo, setNotaModulo] = useState("");
   const [erroNota, setErroNota] = useState("");
+  const [convOpen, setConvOpen] = useState(false);
 
   useEffect(() => {
     if (!sessao) return;
@@ -44,6 +46,7 @@ function AulaDialog({ sessao, onClose }) {
     setObsModulo("");
     setNotaModulo("");
     setErroNota("");
+    setConvOpen(false);
     setRep({ data: somarDias(sessao.data, 7), hora: sessao.hora, modalidade: sessao.modalidade });
   }, [sessao]);
 
@@ -176,12 +179,19 @@ function AulaDialog({ sessao, onClose }) {
     setOcupado(false);
     if (r.ok) {
       onClose();
-      toast(`Módulo ${moduloAtual.nome} concluído! 🎉${recursos.pontos ? ` +${pts} pts para ${sessao.aluno}` : ""}`, "success");
+      const fimDoCurso = ((r.mudancas || {}).matriculas || []).some((m) => m.status === "Concluída");
+      toast(
+        fimDoCurso
+          ? `${sessao.aluno} concluiu o curso! 🎓 Lembre de emitir o certificado.`
+          : `Módulo ${moduloAtual.nome} concluído! 🎉${recursos.pontos ? ` +${pts} pts para ${sessao.aluno}` : ""}`,
+        "success"
+      );
     }
   };
 
   return (
-    <Dialog open onClose={onClose} fullWidth maxWidth="xs" PaperProps={dialogPaper}>
+    <>
+    <Dialog open={!convOpen} onClose={onClose} fullWidth maxWidth="xs" PaperProps={dialogPaper}>
       <DialogContent>
         <VuiBox display="flex" alignItems="center" gap="10px" mb="4px">
           <VuiBox sx={{ width: 12, height: 12, borderRadius: "4px", background: sessao.cor, flexShrink: 0 }} />
@@ -263,6 +273,11 @@ function AulaDialog({ sessao, onClose }) {
             <VuiButton size="small" color="info" variant="outlined" onClick={() => setModoReag(true)}>
               Reagendar
             </VuiButton>
+            {pode.admin && sessao.tipo === "Experimental" && matricula && matricula.status === "Experimental" && (
+              <VuiButton size="small" color="success" variant="outlined" onClick={() => setConvOpen(true)}>
+                Converter em matrícula
+              </VuiButton>
+            )}
           </VuiBox>
         )}
 
@@ -393,6 +408,8 @@ function AulaDialog({ sessao, onClose }) {
         </VuiButton>
       </DialogActions>
     </Dialog>
+    <ConverterExperimentalDialog open={convOpen} matricula={matricula} nomeAluno={sessao.aluno} nomeCurso={sessao.curso} onClose={() => { setConvOpen(false); onClose(); }} />
+    </>
   );
 }
 

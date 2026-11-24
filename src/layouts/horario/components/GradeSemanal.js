@@ -4,7 +4,7 @@ import PropTypes from "prop-types";
 import VuiBox from "components/VuiBox";
 import VuiTypography from "components/VuiTypography";
 
-import { DIAS_GRADE, INTERVALOS_GRADE, barraDoStatus, faixaDaAula, fimDaAula, formatarDataCurta, hojeIso, misturarCor } from "utils/escola";
+import { DIAS_LONGOS, INTERVALOS_GRADE, barraDoStatus, faixaDaAula, fimDaAula, formatarDataCurta, hojeIso, misturarCor, siglaDia } from "utils/escola";
 
 // fundo escuro do card, sobre o qual a cor do curso é misturada (sólido, sem transparência)
 const FUNDO_CARD = "#150a0b";
@@ -44,6 +44,9 @@ function horaInicioFaixa(faixa) {
 
 function GradeSemanal({ dias, sessoes, onSelecionar, feriados, onNovaCelula }) {
   const hoje = hojeIso();
+  // com um único dia (visão "Hoje") sobra espaço: colunas largas e cards com mais informação
+  const umDia = dias.length === 1;
+  const larguraColuna = umDia ? 320 : 160;
 
   // Atualiza hora atual a cada minuto
   const [horaAtual, setHoraAtual] = useState(horaAtualStr);
@@ -65,12 +68,12 @@ function GradeSemanal({ dias, sessoes, onSelecionar, feriados, onNovaCelula }) {
 
   return (
     <VuiBox sx={{ overflowX: "auto" }}>
-      <VuiBox sx={{ display: "grid", gridTemplateColumns: "110px repeat(6, minmax(160px, 1fr))", minWidth: 110 + 6 * 160 }}>
+      <VuiBox sx={{ display: "grid", gridTemplateColumns: `110px repeat(${dias.length}, minmax(${larguraColuna}px, 1fr))`, minWidth: 110 + dias.length * larguraColuna }}>
         <VuiBox />
         {dias.map((d, i) => (
           <VuiBox key={d} sx={{ p: "8px", textAlign: "center", borderRadius: "10px 10px 0 0", background: d === hoje ? "rgba(227,36,43,0.20)" : "transparent" }}>
             <VuiTypography variant="button" color="white" fontWeight="bold" sx={{ display: "block" }}>
-              {DIAS_GRADE[i]}
+              {umDia ? DIAS_LONGOS[siglaDia(d)] : siglaDia(d)}
             </VuiTypography>
             <VuiTypography variant="caption" color="text">
               {formatarDataCurta(d)}
@@ -106,7 +109,7 @@ function GradeSemanal({ dias, sessoes, onSelecionar, feriados, onNovaCelula }) {
                       borderTop: borda,
                       borderLeft: borda,
                       p: "4px",
-                      minHeight: 70,
+                      minHeight: umDia ? 96 : 70,
                       position: "relative",
                       cursor: onNovaCelula ? "copy" : "default",
                       background: feriados[i] ? "rgba(245,165,36,0.07)" : d === hoje ? "rgba(227,36,43,0.07)" : "transparent",
@@ -169,8 +172,8 @@ function GradeSemanal({ dias, sessoes, onSelecionar, feriados, onNovaCelula }) {
                               cursor: "pointer",
                               pl: "6px",
                               pr: barra.marcada ? "14px" : "11px",
-                              py: "3px",
-                              minHeight: "24px",
+                              py: umDia ? "7px" : "3px",
+                              minHeight: umDia ? "44px" : "24px",
                               borderRadius: "6px",
                               borderLeft: `3px solid ${s.cor}`,
                               background: misturarCor(s.cor, FUNDO_CARD, 0.34),
@@ -191,34 +194,42 @@ function GradeSemanal({ dias, sessoes, onSelecionar, feriados, onNovaCelula }) {
                               }}
                             />
 
-                            <VuiTypography
-                              variant="caption"
-                              color="white"
-                              fontWeight="bold"
-                              sx={{
-                                overflow: "hidden",
-                                textOverflow: "ellipsis",
-                                whiteSpace: "nowrap",
-                                fontSize: "11px",
-                                lineHeight: 1.2,
-                                mr: 1,
-                                flex: 1,
-                              }}
-                            >
-                              {s.aluno}
-                            </VuiTypography>
+                            <VuiBox sx={{ flex: 1, minWidth: 0, mr: 1 }}>
+                              <VuiTypography
+                                variant="caption"
+                                color="white"
+                                fontWeight="bold"
+                                sx={{
+                                  display: "block",
+                                  overflow: "hidden",
+                                  textOverflow: "ellipsis",
+                                  whiteSpace: "nowrap",
+                                  fontSize: umDia ? "13px" : "11px",
+                                  lineHeight: 1.2,
+                                }}
+                              >
+                                {s.aluno}
+                              </VuiTypography>
+                              {umDia && (
+                                <VuiTypography variant="caption" color="text" sx={{ display: "block", fontSize: "11px", lineHeight: 1.3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                                  {s.curso}
+                                  {s.tags.length ? ` · ${s.tags.join(" · ")}` : ""}
+                                  {s.professores.length ? ` · Prof.: ${s.professores.join(", ")}` : ""}
+                                </VuiTypography>
+                              )}
+                            </VuiBox>
 
                             <VuiTypography
                               variant="caption"
                               color="text"
                               sx={{
-                                fontSize: "10px",
+                                fontSize: umDia ? "11px" : "10px",
                                 whiteSpace: "nowrap",
                                 opacity: 0.9,
                                 flexShrink: 0,
                               }}
                             >
-                              {s.hora}
+                              {umDia ? `${s.hora}–${fimDaAula(s.hora, s.duracao)}` : s.hora}
                             </VuiTypography>
                           </VuiBox>
                         );
