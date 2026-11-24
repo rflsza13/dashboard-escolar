@@ -331,7 +331,7 @@ const demo = {
       }
       if (f.contato && !String(aluno.contato || "").trim()) aluno = upsert(db, "Alunos", { ...aluno, contato: f.contato });
     } else {
-      aluno = upsert(db, "Alunos", { nome: f.nome.trim(), responsavel: "", contato: f.contato || "", ativo: "Não", obs: "Aula experimental" });
+      aluno = upsert(db, "Alunos", { nome: f.nome.trim(), responsavel: "", contato: f.contato || "", ativo: "Experimental", obs: "Aula experimental" });
     }
     const base = { cursoId: f.cursoId, dia: siglaDia(f.data), inicio: f.hora, duracao: 60, modalidade, moduloAtual: 1, dataInicio: f.data };
     const matExistente = d.matriculas.find((m) => m.alunoId === aluno.id && m.cursoId === f.cursoId && m.status === "Experimental");

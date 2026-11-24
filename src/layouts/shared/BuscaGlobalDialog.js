@@ -11,6 +11,7 @@ import { IoSearchOutline, IoPersonOutline, IoChevronForward } from "react-icons/
 import VuiBox from "components/VuiBox";
 import VuiTypography from "components/VuiTypography";
 import { useEscola } from "context/escola";
+import { classificarAluno } from "utils/escola";
 
 export default function BuscaGlobalDialog({ open, onClose }) {
   const { dados } = useEscola();
@@ -127,9 +128,13 @@ export default function BuscaGlobalDialog({ open, onClose }) {
                 <VuiBox>
                   <VuiTypography variant="button" color="white" fontWeight="bold" sx={{ display: "block", fontSize: "13px" }}>
                     {aluno.nome}
-                    {aluno.ativo === "Não" && (
-                      <span style={{ fontSize: "10px", marginLeft: 6, opacity: 0.6 }}>(inativo)</span>
-                    )}
+                    {(() => {
+                      const cat = classificarAluno(aluno, dados.matriculas);
+                      if (cat === "experimental") return <span style={{ fontSize: "10px", marginLeft: 6, color: "#FF8A3D", fontWeight: 700 }}>(experimental)</span>;
+                      if (cat === "concluido") return <span style={{ fontSize: "10px", marginLeft: 6, color: "#01B574", fontWeight: 700 }}>(concluído)</span>;
+                      if (cat === "inativo") return <span style={{ fontSize: "10px", marginLeft: 6, opacity: 0.6 }}>(inativo)</span>;
+                      return null;
+                    })()}
                   </VuiTypography>
                   <VuiTypography variant="caption" color="text" sx={{ fontSize: "11px", color: "#8c9ba5" }}>
                     {[aluno.responsavel && `Resp: ${aluno.responsavel}`, aluno.contato].filter(Boolean).join(" · ") || "Sem telefone"}

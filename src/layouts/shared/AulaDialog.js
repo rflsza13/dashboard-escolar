@@ -104,7 +104,8 @@ function AulaDialog({ sessao, onClose }) {
       return Math.abs(dataAlvo - dataR) < trintaDiasMs;
     });
 
-    if (recursos.limitarIntervaloReposicao !== false && violouIntervalo) {
+    const limiteAtivo = recursos.limitarIntervaloReposicao !== false && recursos.recursoLimitarReposicao !== false;
+    if (limiteAtivo && violouIntervalo) {
       return setErro("Não é permitido agendar mais de 1 reposição em um intervalo inferior a 30 dias (exceto até 2 no mesmo dia).");
     }
 

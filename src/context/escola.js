@@ -393,6 +393,7 @@ export function EscolaProvider({ children }) {
         migracao: recursoLigado(cfgAtual, "recursoMigracao"),
         feriados: recursoLigado(cfgAtual, "recursoFeriados"),
         ingles: recursoLigado(cfgAtual, "recursoIngles"),
+        limitarIntervaloReposicao: recursoLigado(cfgAtual, "recursoLimitarReposicao") && recursoLigado(cfgAtual, "limitarIntervaloReposicao"),
       },
       areaPerfil: areaDoPerfil(perfil),
       // admin = cadastros e movimentações (Admin, Secretaria e Diretor); config = só o Admin; professor = quem marca aulas, pontos, notas e avaliações

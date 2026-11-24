@@ -13,7 +13,7 @@ import DashboardLayout from "examples/LayoutContainers/DashboardLayout";
 import { IoPersonAdd } from "react-icons/io5";
 
 import { useEscola } from "context/escola";
-import { alertasDeRisco, descricaoModulo, indexarAulas, resumoAluno } from "utils/escola";
+import { alertasDeRisco, descricaoModulo, indexarAulas, resumoAluno, classificarAluno } from "utils/escola";
 
 import BarraStatus from "layouts/shared/BarraStatus";
 import Tabela, { texto } from "layouts/shared/Tabela";
@@ -52,33 +52,55 @@ function Alunos() {
 
   const filtrados = useMemo(() => {
     const q = busca.trim().toLowerCase();
-    return todos.filter(
-      ({ aluno, r }) =>
-        (mostrar === "todos" || (mostrar === "ativos" ? aluno.ativo !== "Não" : aluno.ativo === "Não")) &&
-        (!cursoId || r.matriculas.some((m) => m.matricula.cursoId === cursoId)) &&
-        (!q || `${aluno.nome} ${aluno.responsavel}`.toLowerCase().includes(q))
-    );
-  }, [todos, busca, cursoId, mostrar]);
+    return todos.filter(({ aluno, r }) => {
+      const cat = classificarAluno(aluno, dados.matriculas);
+      if (mostrar === "ativos" && cat !== "ativo") return false;
+      if (mostrar === "experimentais" && cat !== "experimental") return false;
+      if (mostrar === "inativos" && cat !== "inativo") return false;
+      if (mostrar === "concluidos" && cat !== "concluido") return false;
+      if (cursoId && !r.matriculas.some((m) => m.matricula.cursoId === cursoId)) return false;
+      if (q && !`${aluno.nome} ${aluno.responsavel} ${aluno.contato || ""}`.toLowerCase().includes(q)) return false;
+      return true;
+    });
+  }, [todos, busca, cursoId, mostrar, dados.matriculas]);
 
   const colunas = [{ nome: "Aluno" }, { nome: "Cursos e andamento" }, { nome: "Presença", align: "right" }, ...(recursos.pontos ? [{ nome: "BuddyCoins", align: "right" }] : [])];
 
-  const linhas = filtrados.slice(0, limite).map(({ aluno, r }) => ({
-    chave: aluno.id,
-    onClick: () => history.push(`/alunos/${aluno.id}`),
-    celulas: [
-      <VuiBox key="n">
-        <VuiTypography variant="button" color="white" fontWeight="medium" sx={{ display: "block" }}>
-          {aluno.nome}
-          {emRisco[aluno.id] && (
-            <span title={emRisco[aluno.id].motivos.join(" · ")} style={{ marginLeft: 8, fontSize: 10, fontWeight: 700, color: "#F5A524", border: "1px solid #F5A524", borderRadius: 10, padding: "1px 7px", verticalAlign: "middle" }}>
-              RISCO
-            </span>
-          )}
-        </VuiTypography>
-        <VuiTypography variant="caption" color="text">
-          {aluno.ativo === "Não" ? (r.matriculas.some((m) => m.matricula.status === "Saiu") ? "Saiu" : "Inativo") : aluno.responsavel || aluno.contato || "—"}
-        </VuiTypography>
-      </VuiBox>,
+  const linhas = filtrados.slice(0, limite).map(({ aluno, r }) => {
+    const cat = classificarAluno(aluno, dados.matriculas);
+    return {
+      chave: aluno.id,
+      onClick: () => history.push(`/alunos/${aluno.id}`),
+      celulas: [
+        <VuiBox key="n">
+          <VuiTypography variant="button" color="white" fontWeight="medium" sx={{ display: "block" }}>
+            {aluno.nome}
+            {cat === "experimental" && (
+              <span style={{ marginLeft: 8, fontSize: 10, fontWeight: 700, color: "#FF8A3D", border: "1px solid #FF8A3D", borderRadius: 10, padding: "1px 7px", verticalAlign: "middle" }}>
+                EXPERIMENTAL
+              </span>
+            )}
+            {cat === "concluido" && (
+              <span style={{ marginLeft: 8, fontSize: 10, fontWeight: 700, color: "#01B574", border: "1px solid #01B574", borderRadius: 10, padding: "1px 7px", verticalAlign: "middle" }}>
+                CONCLUÍDO
+              </span>
+            )}
+            {emRisco[aluno.id] && (
+              <span title={emRisco[aluno.id].motivos.join(" · ")} style={{ marginLeft: 8, fontSize: 10, fontWeight: 700, color: "#F5A524", border: "1px solid #F5A524", borderRadius: 10, padding: "1px 7px", verticalAlign: "middle" }}>
+                RISCO
+              </span>
+            )}
+          </VuiTypography>
+          <VuiTypography variant="caption" color="text">
+            {cat === "experimental"
+              ? `Aula experimental · ${aluno.contato || aluno.responsavel || "—"}`
+              : cat === "concluido"
+              ? `Concluído · ${aluno.responsavel || aluno.contato || "—"}`
+              : cat === "inativo"
+              ? `${r.matriculas.some((m) => m.matricula.status === "Saiu") ? "Saiu do curso" : "Inativo"} · ${aluno.contato || "—"}`
+              : aluno.responsavel || aluno.contato || "—"}
+          </VuiTypography>
+        </VuiBox>,
       <VuiBox key="c">
         {r.matriculas.length === 0 && texto("Sem matrícula")}
         {r.matriculas.map(({ matricula, curso, progresso }) => (
@@ -114,7 +136,8 @@ function Alunos() {
       </VuiBox>,
       ...(recursos.pontos ? [texto(String(r.saldo), "white")] : []),
     ],
-  }));
+  };
+});
 
   return (
     <DashboardLayout>
@@ -150,7 +173,9 @@ function Alunos() {
             </NativeSelect>
             <NativeSelect value={mostrar} onChange={(e) => { setMostrar(e.target.value); setLimite(PASSO); }}>
               <option value="ativos">Só ativos</option>
-              <option value="inativos">Só inativos</option>
+              <option value="experimentais">Aulas experimentais</option>
+              <option value="inativos">Só inativos (saíram)</option>
+              <option value="concluidos">Concluídos</option>
               <option value="todos">Todos</option>
             </NativeSelect>
           </VuiBox>

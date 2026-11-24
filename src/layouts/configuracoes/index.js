@@ -105,6 +105,9 @@ function Configuracoes() {
     RECURSOS.forEach((r) => {
       saida[r.chave] = Boolean(recs[r.chave]);
     });
+    if ("recursoLimitarReposicao" in saida) {
+      saida.limitarIntervaloReposicao = saida.recursoLimitarReposicao;
+    }
     setErros(e);
     if (Object.keys(e).length) return;
     setOcupado(true);

@@ -104,7 +104,8 @@ function NovaAulaDialog({ open, dataInicial, horaInicial, onClose }) {
           const alvo = dataDeIso(f.data).getTime();
           const trintaDias = 30 * 24 * 60 * 60 * 1000;
           const violou = reposAluno.some((r) => r.data !== f.data && Math.abs(alvo - dataDeIso(r.data).getTime()) < trintaDias);
-          if (recursos.limitarIntervaloReposicao !== false && violou) e.data = "Intervalo inferior a 30 dias de outra reposição deste aluno.";
+          const limiteAtivo = recursos.limitarIntervaloReposicao !== false && recursos.recursoLimitarReposicao !== false;
+          if (limiteAtivo && violou) e.data = "Intervalo inferior a 30 dias de outra reposição deste aluno.";
         }
       }
     }

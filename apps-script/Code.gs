@@ -79,7 +79,8 @@ const CONFIG_CHAVES = {
   'Cor: reposições': 'corReposicao', 'Cor: aula experimental': 'corExperimental',
   'Alerta de evasão: faltas seguidas': 'riscoFaltasSeguidas', 'Alerta de evasão: reposições pendentes': 'riscoReposicoes',
   'Recurso: feriados': 'recursoFeriados', 'Recurso: curso de inglês': 'recursoIngles', 'Recurso: saldo do sistema anterior': 'recursoMigracao', 'Recurso: avaliações': 'recursoAvaliacoes', 'Recurso: alertas de evasão': 'recursoAlertas',
-  'Recurso: pontos e recompensas': 'recursoPontos', 'Recurso: professores e escala': 'recursoProfessores', 'Recurso: aulas experimentais': 'recursoExperimentais'
+  'Recurso: pontos e recompensas': 'recursoPontos', 'Recurso: professores e escala': 'recursoProfessores', 'Recurso: aulas experimentais': 'recursoExperimentais',
+  'Recurso: limitar reposições': 'recursoLimitarReposicao'
 };
 // Funcionalidades ligáveis/desligáveis (valor Sim/Não na aba Config; sem a linha, a funcionalidade fica ligada)
 function ehRecurso(chave) { return chave.indexOf('recurso') === 0; }
@@ -514,7 +515,7 @@ function salvarConfig(cfg) {
     gradeInicio: function (v) { v = Number(v); if (!isFinite(v) || v < 0 || v > 23) throw falha('ERRO', 'Hora inicial inválida.'); return v; },
     gradeFim: function (v) { v = Number(v); if (!isFinite(v) || v < 1 || v > 24) throw falha('ERRO', 'Hora final inválida.'); return v; },
     corOnline: corValida, corReposicao: corValida, corExperimental: corValida,
-    recursoPontos: boolSim, recursoProfessores: boolSim, recursoExperimentais: boolSim, recursoAvaliacoes: boolSim, recursoAlertas: boolSim, recursoMigracao: boolSim, recursoFeriados: boolSim, recursoIngles: boolSim,
+    recursoPontos: boolSim, recursoProfessores: boolSim, recursoExperimentais: boolSim, recursoAvaliacoes: boolSim, recursoAlertas: boolSim, recursoMigracao: boolSim, recursoFeriados: boolSim, recursoIngles: boolSim, recursoLimitarReposicao: boolSim,
     riscoFaltasSeguidas: inteiroMin1, riscoReposicoes: inteiroMin1
   };
   function inteiroMin1(v) { v = Number(v); if (!isFinite(v) || v < 1 || Math.floor(v) !== v) throw falha('ERRO', 'Os limites do alerta devem ser números inteiros, 1 ou mais.'); return v; }
@@ -806,7 +807,7 @@ function criarExperimental(req, u) {
     }
     if (req.contato && !String(aluno.contato || '').trim()) aluno = salvarRegistro('Alunos', Object.assign({}, aluno, { contato: String(req.contato) }), u);
   } else {
-    aluno = salvarRegistro('Alunos', { nome: String(req.nome).trim(), responsavel: '', contato: req.contato || '', ativo: 'Não', obs: 'Aula experimental' }, u);
+    aluno = salvarRegistro('Alunos', { nome: String(req.nome).trim(), responsavel: '', contato: req.contato || '', ativo: 'Experimental', obs: 'Aula experimental' }, u);
   }
   const dadosMat = { cursoId: curso.id, dia: siglaDia(req.data), inicio: req.hora, duracao: Number(req.duracao) || 60, modalidade: modalidade, moduloAtual: 1, dataInicio: req.data };
   const existente = mats.find(function (m) { return m.alunoId === aluno.id && m.cursoId === curso.id && m.status === 'Experimental'; });

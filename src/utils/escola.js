@@ -32,6 +32,7 @@ export const DEFAULT_CONFIG = {
   recursoMigracao: false,
   recursoFeriados: true,
   recursoIngles: true,
+  recursoLimitarReposicao: true,
   limitarIntervaloReposicao: true,
   riscoFaltasSeguidas: 3,
   riscoReposicoes: 2,
@@ -50,10 +51,13 @@ export const RECURSOS = [
   { chave: "recursoFeriados", rotulo: "Feriados e férias", ajuda: "Tira as aulas regulares dos feriados nacionais, dos dias cadastrados e dos períodos de férias de Configurações." },
   { chave: "recursoIngles", rotulo: "Curso de inglês", ajuda: "Desligado, esconde tudo do inglês (cursos, alunos, aulas, escala e a aba Inglês da grade). Os dados continuam salvos e voltam ao religar." },
   { chave: "recursoAlertas", rotulo: "Alertas de risco de evasão", ajuda: "Card Alunos em risco no dashboard e marcação na lista e na ficha do aluno." },
-  { chave: "limitarIntervaloReposicao", rotulo: "Limitar reposições (1 a cada 30 dias)", ajuda: "Quando ativado, bloqueia o agendamento de mais de 1 reposição no intervalo de 30 dias (permitindo até 2 no mesmo dia). Desligue para permitir reposições sem restrição de prazo." },
+  { chave: "recursoLimitarReposicao", rotulo: "Limitar reposições (1 a cada 30 dias)", ajuda: "Quando ativado, bloqueia o agendamento de mais de 1 reposição no intervalo de 30 dias (permitindo até 2 no mesmo dia). Desligue para permitir reposições sem restrição de prazo." },
 ];
 export function recursoLigado(cfg, chave) {
-  const v = cfg ? cfg[chave] : undefined;
+  let v = cfg ? cfg[chave] : undefined;
+  if (v === undefined && chave === "recursoLimitarReposicao" && cfg && cfg.limitarIntervaloReposicao !== undefined) {
+    v = cfg.limitarIntervaloReposicao;
+  }
   if (v === undefined || v === null || v === "") return chave in DEFAULT_CONFIG ? DEFAULT_CONFIG[chave] !== false : true;
   if (typeof v === "boolean") return v;
   return !["não", "nao", "false", "0", "n"].includes(String(v).trim().toLowerCase());
@@ -860,6 +864,39 @@ export function certificadosPendentes(dados, hoje, dias = DIAS_ALERTA_CERTIFICAD
     .sort((a, b) => String(b.concluidoEm).localeCompare(String(a.concluidoEm)));
 }
 
+export function classificarAluno(aluno, matriculas = [], dados = null) {
+  if (!aluno) return "inativo";
+  const mats = matriculas.filter((m) => m.alunoId === aluno.id);
+  const temAtiva = mats.some((m) => m.status === "Ativa");
+
+  // 1. Se tem qualquer matrícula ativa, é ATIVO com prioridade máxima
+  // Caso o aluno conclua um curso e matricule em outro, ele volta a ser ativo imediatamente.
+  if (temAtiva) return "ativo";
+
+  // 2. Se não tem matrícula ativa, verificar se é experimental (visitante/lead)
+  const ehStatusConcluida = (s) => typeof s === "string" && s.trim().toLowerCase().startsWith("conclu");
+  const temConcluidaMat = mats.some((m) => ehStatusConcluida(m.status));
+  const soExperimental = mats.length > 0 && mats.every((m) => m.status === "Experimental");
+  const ehExperimentalPorObs = /experimental/i.test(aluno.obs || "") && !mats.some((m) => ["Ativa", "Trancada", "Saiu"].includes(m.status) || ehStatusConcluida(m.status));
+  if (aluno.ativo === "Experimental" || soExperimental || ehExperimentalPorObs) {
+    return "experimental";
+  }
+
+  // 3. Se não tem matrícula ativa, verificar se concluiu o curso
+  const temMovConclusao = dados && dados.movimentacoes ? dados.movimentacoes.some((mv) => mv.alunoId === aluno.id && mv.tipo === "Conclusão") : false;
+  if (temConcluidaMat || temMovConclusao || /conclu[ií]do/i.test(aluno.obs || "")) {
+    return "concluido";
+  }
+
+  // 4. Se o cadastro está ativo mas sem matrícula ativa/concluída
+  if (aluno.ativo === "Sim" && mats.length === 0) {
+    return "ativo";
+  }
+
+  // 5. Inativo (saiu, trancou, cancelou)
+  return "inativo";
+}
+
 export function calcularMetricasGerais(dados, diasFiltro = null) {
   const hoje = hojeIso();
   const dataCorte = diasFiltro ? somarDias(hoje, -diasFiltro) : null;
@@ -872,8 +909,10 @@ export function calcularMetricasGerais(dados, diasFiltro = null) {
   const avaliacoes = dados.avaliacoes || [];
   const progresso = dados.progresso || [];
 
-  const alunosAtivos = todosAlunos.filter((a) => a.ativo === "Sim");
-  const alunosInativos = todosAlunos.filter((a) => a.ativo === "Não");
+  const alunosAtivos = todosAlunos.filter((a) => classificarAluno(a, matriculas) === "ativo");
+  const alunosExperimentais = todosAlunos.filter((a) => classificarAluno(a, matriculas) === "experimental");
+  const alunosInativos = todosAlunos.filter((a) => classificarAluno(a, matriculas) === "inativo");
+  const alunosConcluidos = todosAlunos.filter((a) => classificarAluno(a, matriculas) === "concluido");
 
   const matAtivas = matriculas.filter((m) => m.status === "Ativa");
   const matInativas = matriculas.filter((m) => m.status === "Saiu" || m.status === "Inativa" || m.status === "Cancelada");
@@ -1060,7 +1099,7 @@ export function calcularMetricasGerais(dados, diasFiltro = null) {
     .filter((m) => ["Inativa", "Cancelada", "Saiu", "Trancada"].includes(m.status))
     .forEach((m) => {
       const al = alunosMap[m.alunoId];
-      if (al && !chavesEvadidos.has(`${m.alunoId}_${m.id}`)) {
+      if (al && classificarAluno(al, matriculas) === "inativo" && !chavesEvadidos.has(`${m.alunoId}_${m.id}`)) {
         chavesEvadidos.add(`${m.alunoId}_${m.id}`);
         const cr = cursos.find((c) => c.id === m.cursoId);
         listaEvadidos.push({
@@ -1076,7 +1115,7 @@ export function calcularMetricasGerais(dados, diasFiltro = null) {
     });
 
   todosAlunos
-    .filter((a) => a.ativo === "Não")
+    .filter((a) => a.ativo === "Não" && classificarAluno(a, matriculas) === "inativo")
     .forEach((a) => {
       if (![...chavesEvadidos].some((k) => k.startsWith(`${a.id}_`))) {
         chavesEvadidos.add(`${a.id}_geral`);
@@ -1088,6 +1127,31 @@ export function calcularMetricasGerais(dados, diasFiltro = null) {
           status: "Inativo",
           dataInicio: "—",
           obs: a.obs || "",
+        });
+      }
+    });
+
+  // 6.3 Alunos que concluíram o curso
+  const listaConcluidos = [];
+  const chavesConcluidos = new Set();
+  matriculas
+    .filter((m) => m.status === "Concluída")
+    .forEach((m) => {
+      const al = alunosMap[m.alunoId];
+      if (al && !chavesConcluidos.has(`${m.alunoId}_${m.cursoId}`)) {
+        chavesConcluidos.add(`${m.alunoId}_${m.cursoId}`);
+        const cr = cursos.find((c) => c.id === m.cursoId);
+        const mov = (dados.movimentacoes || []).find((mv) => mv.matriculaId === m.id && mv.tipo === "Conclusão");
+        const prog = (dados.progresso || []).filter((p) => p.matriculaId === m.id).sort((a, b) => (b.concluidoEm || "").localeCompare(a.concluidoEm || ""));
+        const dataConcl = mov ? mov.data : (prog[0] ? prog[0].concluidoEm : m.dataInicio || "—");
+        listaConcluidos.push({
+          alunoId: m.alunoId,
+          nome: al.nome,
+          contato: al.contato || al.responsavel || "—",
+          curso: cr ? cr.nome : "—",
+          status: "Concluído",
+          dataConclusao: dataConcl,
+          obs: m.obs || al.obs || "",
         });
       }
     });
@@ -1132,6 +1196,8 @@ export function calcularMetricasGerais(dados, diasFiltro = null) {
   return {
     alunosAtivos: alunosAtivos.length,
     alunosInativos: alunosInativos.length,
+    alunosExperimentais: alunosExperimentais.length,
+    alunosConcluidos: alunosConcluidos.length,
     taxaRetencao: Math.round(taxaRetencao * 10) / 10,
     taxaEvasao: Math.round(taxaEvasao * 10) / 10,
     permanenciaMediaMeses,
@@ -1149,6 +1215,7 @@ export function calcularMetricasGerais(dados, diasFiltro = null) {
     taxaConversaoExp,
     alunosRisco,
     listaEvadidos,
+    listaConcluidos,
     listaExpMatriculados,
     listaExpNaoMatriculados,
   };

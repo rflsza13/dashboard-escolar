@@ -20,7 +20,7 @@ import AvaliacaoFinalDialog from "layouts/alunos/components/AvaliacaoFinalDialog
 import HistoricoMovimentacoes from "layouts/alunos/components/HistoricoMovimentacoes";
 import NotaModuloDialog from "layouts/alunos/components/NotaModuloDialog";
 import ConverterExperimentalDialog from "layouts/alunos/components/ConverterExperimentalDialog";
-import { DIAS_LONGOS, DURACAO_AULA, DURACAO_EXPERIMENTAL, alertasDeRisco, descricaoModulo, faseDoModulo, formatarData, formatarNota, frequenciaAcumulada, indexarAulas, resumoAluno, rotuloSituacao, serieMensal, faltasSemReposicao, hojeIso } from "utils/escola";
+import { DIAS_LONGOS, DURACAO_AULA, DURACAO_EXPERIMENTAL, alertasDeRisco, descricaoModulo, faseDoModulo, formatarData, formatarNota, frequenciaAcumulada, indexarAulas, resumoAluno, rotuloSituacao, serieMensal, faltasSemReposicao, hojeIso, classificarAluno } from "utils/escola";
 
 import BarraStatus from "layouts/shared/BarraStatus";
 import StatusChip from "layouts/shared/StatusChip";
@@ -134,7 +134,13 @@ function FichaAluno() {
             </VuiButton>
             <VuiTypography variant="h4" color="white" fontWeight="bold" sx={{ display: "flex", alignItems: "center", gap: "10px", flexWrap: "wrap" }}>
               {aluno.nome}
-              {aluno.ativo === "Não" && <span style={{ fontSize: "12px", opacity: 0.7 }}>(inativo)</span>}
+              {(() => {
+                const cat = classificarAluno(aluno, dados.matriculas);
+                if (cat === "experimental") return <span style={{ fontSize: "12px", color: "#FF8A3D", fontWeight: 700 }}>(aula experimental)</span>;
+                if (cat === "concluido") return <span style={{ fontSize: "12px", color: "#01B574", fontWeight: 700 }}>(concluído)</span>;
+                if (cat === "inativo") return <span style={{ fontSize: "12px", color: "#E3242B", opacity: 0.8 }}>(inativo)</span>;
+                return null;
+              })()}
               {faltasPendentesReposicao.length > 0 && (
                 <span
                   title={`${faltasPendentesReposicao.length} falta(s) sem reposição nos últimos 90 dias`}

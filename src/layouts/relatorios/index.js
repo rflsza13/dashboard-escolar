@@ -14,6 +14,7 @@ import {
   IoPersonRemoveOutline,
   IoPersonAddOutline,
   IoCallOutline,
+  IoSchoolOutline,
 } from "react-icons/io5";
 
 import VuiBox from "components/VuiBox";
@@ -99,7 +100,6 @@ export default function Relatorios() {
   const { dados } = useEscola();
   const history = useHistory();
   const [periodo, setPeriodo] = useState(30);
-  const [abaMov, setAbaMov] = useState("evadidos"); // "evadidos" | "expMatriculados" | "expNaoMatriculados"
 
   const m = useMemo(() => calcularMetricasGerais(dados, periodo), [dados, periodo]);
 
@@ -187,7 +187,7 @@ export default function Relatorios() {
             <CardKpi
               titulo="Alunos Ativos"
               valor={m.alunosAtivos}
-              detalhe={`${m.alunosInativos} inativos cadastrados`}
+              detalhe={`${m.alunosInativos} saíram · ${m.alunosConcluidos || 0} formados`}
               icone={IoPeopleOutline}
               cor="#2CD9FF"
             />
@@ -548,259 +548,356 @@ export default function Relatorios() {
           )}
         </Card>
 
-        {/* 5. MOVIMENTAÇÕES & DETALHES DE CONVERSÃO / EVASÃO */}
-        <Card>
-          <VuiBox display="flex" flexWrap="wrap" justifyContent="space-between" alignItems="center" gap="12px" mb={2.5}>
-            <VuiBox>
-              <VuiTypography variant="lg" color="white" fontWeight="bold">
-                Movimentações & Detalhamento de Alunos
-              </VuiTypography>
-              <VuiTypography variant="caption" color="text">
-                Acompanhamento de evasão e funil de conversão das aulas experimentais
-              </VuiTypography>
-            </VuiBox>
+        {/* 5. MOVIMENTAÇÕES & DETALHAMENTO EM 4 CARDS (2 POR LINHA) */}
+        <VuiBox mt={3} mb={1.5}>
+          <VuiTypography variant="lg" color="white" fontWeight="bold">
+            Movimentações & Detalhamento de Alunos
+          </VuiTypography>
+          <VuiTypography variant="caption" color="text">
+            Acompanhamento de saídas, conclusões de curso e funil de conversão das aulas experimentais
+          </VuiTypography>
+        </VuiBox>
 
-            {/* Alternador de Listas */}
-            <VuiBox display="flex" flexWrap="wrap" gap="6px" sx={{ background: "rgba(18,18,24,0.7)", p: "4px", borderRadius: "10px", border: "1px solid rgba(255,255,255,0.08)" }}>
-              <VuiButton
-                size="small"
-                color="info"
-                variant={abaMov === "evadidos" ? "contained" : "text"}
-                onClick={() => setAbaMov("evadidos")}
-                sx={{ borderRadius: "7px", px: 1.5, py: 0.6, fontSize: "11px", textTransform: "none", fontWeight: abaMov === "evadidos" ? 700 : 500 }}
-              >
-                <IoPersonRemoveOutline size="14px" style={{ marginRight: 6 }} />
-                Saíram do curso ({m.listaEvadidos.length})
-              </VuiButton>
-
-              <VuiButton
-                size="small"
-                color="info"
-                variant={abaMov === "expMatriculados" ? "contained" : "text"}
-                onClick={() => setAbaMov("expMatriculados")}
-                sx={{ borderRadius: "7px", px: 1.5, py: 0.6, fontSize: "11px", textTransform: "none", fontWeight: abaMov === "expMatriculados" ? 700 : 500 }}
-              >
-                <IoPersonAddOutline size="14px" style={{ marginRight: 6 }} />
-                Matriculados pós-exp ({m.listaExpMatriculados.length})
-              </VuiButton>
-
-              <VuiButton
-                size="small"
-                color="info"
-                variant={abaMov === "expNaoMatriculados" ? "contained" : "text"}
-                onClick={() => setAbaMov("expNaoMatriculados")}
-                sx={{ borderRadius: "7px", px: 1.5, py: 0.6, fontSize: "11px", textTransform: "none", fontWeight: abaMov === "expNaoMatriculados" ? 700 : 500 }}
-              >
-                <IoCallOutline size="14px" style={{ marginRight: 6 }} />
-                Fizeram exp e não matricularam ({m.listaExpNaoMatriculados.length})
-              </VuiButton>
-            </VuiBox>
-          </VuiBox>
-
-          {/* TABELA: ALUNOS QUE SAÍRAM */}
-          {abaMov === "evadidos" && (
-            <VuiBox sx={{ overflowX: "auto" }}>
-              {m.listaEvadidos.length === 0 ? (
-                <VuiBox sx={{ textAlign: "center", py: 4 }}>
-                  <VuiTypography variant="button" color="text">
-                    Nenhum aluno com status inativo ou cancelado registrado.
-                  </VuiTypography>
+        <Grid container spacing={3} mb={3}>
+          {/* Card 1: Alunos que Saíram do Curso */}
+          <Grid item xs={12} lg={6}>
+            <Card sx={{ height: "100%", display: "flex", flexDirection: "column" }}>
+              <VuiBox display="flex" justifyContent="space-between" alignItems="center" mb={2}>
+                <VuiBox display="flex" alignItems="center" gap="10px">
+                  <VuiBox sx={{ width: 34, height: 34, borderRadius: "8px", background: "rgba(227,36,43,0.15)", display: "flex", alignItems: "center", justifyContent: "center", color: "#E31A1A" }}>
+                    <IoPersonRemoveOutline size="18px" />
+                  </VuiBox>
+                  <VuiBox>
+                    <VuiTypography variant="button" color="white" fontWeight="bold">
+                      Saíram do Curso
+                    </VuiTypography>
+                    <VuiTypography variant="caption" color="text" sx={{ display: "block" }}>
+                      Desistências, cancelamentos e inativos
+                    </VuiTypography>
+                  </VuiBox>
                 </VuiBox>
-              ) : (
-                <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 620 }}>
-                  <thead>
-                    <tr style={{ borderBottom: "1px solid rgba(255,255,255,0.08)" }}>
-                      <th style={{ textAlign: "left", padding: "10px 12px", color: "rgba(255,255,255,0.5)", fontSize: "11px", textTransform: "uppercase" }}>Aluno</th>
-                      <th style={{ textAlign: "left", padding: "10px 12px", color: "rgba(255,255,255,0.5)", fontSize: "11px", textTransform: "uppercase" }}>Curso</th>
-                      <th style={{ textAlign: "left", padding: "10px 12px", color: "rgba(255,255,255,0.5)", fontSize: "11px", textTransform: "uppercase" }}>Contato</th>
-                      <th style={{ textAlign: "center", padding: "10px 12px", color: "rgba(255,255,255,0.5)", fontSize: "11px", textTransform: "uppercase" }}>Status</th>
-                      <th style={{ textAlign: "left", padding: "10px 12px", color: "rgba(255,255,255,0.5)", fontSize: "11px", textTransform: "uppercase" }}>Observações</th>
-                      <th style={{ textAlign: "right", padding: "10px 12px", color: "rgba(255,255,255,0.5)", fontSize: "11px", textTransform: "uppercase" }} className="nao-imprimir">Ação</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {m.listaEvadidos.map((al, idx) => (
-                      <tr key={`${al.alunoId}_${idx}`} style={{ borderBottom: "1px solid rgba(255,255,255,0.04)" }}>
-                        <td style={{ padding: "12px" }}>
-                          <VuiTypography variant="button" color="white" fontWeight="bold">
-                            {al.nome}
-                          </VuiTypography>
-                        </td>
-                        <td style={{ padding: "12px" }}>
-                          <VuiTypography variant="caption" color="text">
-                            {al.curso}
-                          </VuiTypography>
-                        </td>
-                        <td style={{ padding: "12px" }}>
-                          <VuiTypography variant="caption" color="text">
-                            {al.contato}
-                          </VuiTypography>
-                        </td>
-                        <td style={{ textAlign: "center", padding: "12px" }}>
-                          <VuiTypography variant="caption" sx={{ color: "#E31A1A", fontWeight: "bold", background: "rgba(227,36,43,0.12)", px: 1.2, py: 0.3, borderRadius: "6px" }}>
-                            {al.status}
-                          </VuiTypography>
-                        </td>
-                        <td style={{ padding: "12px", maxWidth: "260px" }}>
-                          <VuiTypography variant="caption" color="text" sx={{ display: "block", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                            {al.obs || "—"}
-                          </VuiTypography>
-                        </td>
-                        <td style={{ textAlign: "right", padding: "12px" }} className="nao-imprimir">
-                          <VuiButton
-                            size="small"
-                            color="info"
-                            variant="text"
-                            onClick={() => history.push(`/alunos/${al.alunoId}`)}
-                            sx={{ textTransform: "none", fontSize: "11px" }}
-                          >
-                            Ver ficha
-                          </VuiButton>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              )}
-            </VuiBox>
-          )}
+                <VuiTypography variant="caption" sx={{ background: "rgba(227,36,43,0.15)", color: "#E31A1A", px: 1.5, py: 0.4, borderRadius: "20px", fontWeight: "bold" }}>
+                  {m.listaEvadidos.length} aluno(s)
+                </VuiTypography>
+              </VuiBox>
 
-          {/* TABELA: MATRICULADOS PÓS-EXPERIMENTAL */}
-          {abaMov === "expMatriculados" && (
-            <VuiBox sx={{ overflowX: "auto" }}>
-              {m.listaExpMatriculados.length === 0 ? (
-                <VuiBox sx={{ textAlign: "center", py: 4 }}>
-                  <VuiTypography variant="button" color="text">
-                    Nenhuma matrícula convertida no período selecionado.
-                  </VuiTypography>
-                </VuiBox>
-              ) : (
-                <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 620 }}>
-                  <thead>
-                    <tr style={{ borderBottom: "1px solid rgba(255,255,255,0.08)" }}>
-                      <th style={{ textAlign: "left", padding: "10px 12px", color: "rgba(255,255,255,0.5)", fontSize: "11px", textTransform: "uppercase" }}>Aluno</th>
-                      <th style={{ textAlign: "left", padding: "10px 12px", color: "rgba(255,255,255,0.5)", fontSize: "11px", textTransform: "uppercase" }}>Curso Matriculado</th>
-                      <th style={{ textAlign: "left", padding: "10px 12px", color: "rgba(255,255,255,0.5)", fontSize: "11px", textTransform: "uppercase" }}>Contato</th>
-                      <th style={{ textAlign: "center", padding: "10px 12px", color: "rgba(255,255,255,0.5)", fontSize: "11px", textTransform: "uppercase" }}>Data da Experimental</th>
-                      <th style={{ textAlign: "center", padding: "10px 12px", color: "rgba(255,255,255,0.5)", fontSize: "11px", textTransform: "uppercase" }}>Status Matrícula</th>
-                      <th style={{ textAlign: "right", padding: "10px 12px", color: "rgba(255,255,255,0.5)", fontSize: "11px", textTransform: "uppercase" }} className="nao-imprimir">Ação</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {m.listaExpMatriculados.map((al) => (
-                      <tr key={al.alunoId} style={{ borderBottom: "1px solid rgba(255,255,255,0.04)" }}>
-                        <td style={{ padding: "12px" }}>
-                          <VuiTypography variant="button" color="white" fontWeight="bold">
-                            {al.nome}
-                          </VuiTypography>
-                        </td>
-                        <td style={{ padding: "12px" }}>
-                          <VuiTypography variant="caption" color="white" fontWeight="medium">
-                            {al.cursoMatriculado}
-                          </VuiTypography>
-                        </td>
-                        <td style={{ padding: "12px" }}>
-                          <VuiTypography variant="caption" color="text">
-                            {al.contato}
-                          </VuiTypography>
-                        </td>
-                        <td style={{ textAlign: "center", padding: "12px" }}>
-                          <VuiTypography variant="caption" color="text">
-                            {formatarData(al.dataExp)}
-                          </VuiTypography>
-                        </td>
-                        <td style={{ textAlign: "center", padding: "12px" }}>
-                          <VuiTypography variant="caption" sx={{ color: "#01B574", fontWeight: "bold", background: "rgba(1,181,116,0.12)", px: 1.2, py: 0.3, borderRadius: "6px" }}>
-                            {al.statusMatricula}
-                          </VuiTypography>
-                        </td>
-                        <td style={{ textAlign: "right", padding: "12px" }} className="nao-imprimir">
-                          <VuiButton
-                            size="small"
-                            color="info"
-                            variant="text"
-                            onClick={() => history.push(`/alunos/${al.alunoId}`)}
-                            sx={{ textTransform: "none", fontSize: "11px" }}
-                          >
-                            Ver ficha
-                          </VuiButton>
-                        </td>
+              <VuiBox sx={{ overflowX: "auto", maxHeight: "340px", overflowY: "auto", flexGrow: 1 }}>
+                {m.listaEvadidos.length === 0 ? (
+                  <VuiBox sx={{ textAlign: "center", py: 4 }}>
+                    <VuiTypography variant="caption" color="text">
+                      Nenhum aluno com status inativo ou saída registrado.
+                    </VuiTypography>
+                  </VuiBox>
+                ) : (
+                  <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 420 }}>
+                    <thead>
+                      <tr style={{ borderBottom: "1px solid rgba(255,255,255,0.08)", position: "sticky", top: 0, background: "rgba(18,18,24,0.95)", zIndex: 1 }}>
+                        <th style={{ textAlign: "left", padding: "8px 10px", color: "rgba(255,255,255,0.5)", fontSize: "11px", textTransform: "uppercase" }}>Aluno</th>
+                        <th style={{ textAlign: "left", padding: "8px 10px", color: "rgba(255,255,255,0.5)", fontSize: "11px", textTransform: "uppercase" }}>Curso</th>
+                        <th style={{ textAlign: "center", padding: "8px 10px", color: "rgba(255,255,255,0.5)", fontSize: "11px", textTransform: "uppercase" }}>Situação</th>
+                        <th style={{ textAlign: "right", padding: "8px 10px", color: "rgba(255,255,255,0.5)", fontSize: "11px", textTransform: "uppercase" }} className="nao-imprimir">Ação</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
-              )}
-            </VuiBox>
-          )}
+                    </thead>
+                    <tbody>
+                      {m.listaEvadidos.map((al, idx) => (
+                        <tr key={`${al.alunoId}_${idx}`} style={{ borderBottom: "1px solid rgba(255,255,255,0.04)" }}>
+                          <td style={{ padding: "10px" }}>
+                            <VuiTypography variant="button" color="white" fontWeight="bold" sx={{ fontSize: "13px" }}>
+                              {al.nome}
+                            </VuiTypography>
+                            <VuiTypography variant="caption" color="text" sx={{ display: "block", fontSize: "11px" }}>
+                              {al.contato || "—"}
+                            </VuiTypography>
+                          </td>
+                          <td style={{ padding: "10px" }}>
+                            <VuiTypography variant="caption" color="text">
+                              {al.curso}
+                            </VuiTypography>
+                          </td>
+                          <td style={{ textAlign: "center", padding: "10px" }}>
+                            <VuiTypography variant="caption" sx={{ color: "#E31A1A", fontWeight: "bold", background: "rgba(227,36,43,0.12)", px: 1, py: 0.3, borderRadius: "6px" }}>
+                              {al.status}
+                            </VuiTypography>
+                          </td>
+                          <td style={{ textAlign: "right", padding: "10px" }} className="nao-imprimir">
+                            <VuiButton
+                              size="small"
+                              color="info"
+                              variant="text"
+                              onClick={() => history.push(`/alunos/${al.alunoId}`)}
+                              sx={{ textTransform: "none", fontSize: "11px", p: "4px 8px" }}
+                            >
+                              Ver ficha
+                            </VuiButton>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                )}
+              </VuiBox>
+            </Card>
+          </Grid>
 
-          {/* TABELA: FIZERAM EXPERIMENTAL E NÃO MATRICULARAM (LEADS QUENTES) */}
-          {abaMov === "expNaoMatriculados" && (
-            <VuiBox sx={{ overflowX: "auto" }}>
-              {m.listaExpNaoMatriculados.length === 0 ? (
-                <VuiBox sx={{ textAlign: "center", py: 4 }}>
-                  <VuiTypography variant="button" color="text">
-                    Todos os alunos que realizaram experimental no período efetivaram matrícula!
-                  </VuiTypography>
+          {/* Card 2: Alunos que Concluíram o Curso */}
+          <Grid item xs={12} lg={6}>
+            <Card sx={{ height: "100%", display: "flex", flexDirection: "column" }}>
+              <VuiBox display="flex" justifyContent="space-between" alignItems="center" mb={2}>
+                <VuiBox display="flex" alignItems="center" gap="10px">
+                  <VuiBox sx={{ width: 34, height: 34, borderRadius: "8px", background: "rgba(1,181,116,0.15)", display: "flex", alignItems: "center", justifyContent: "center", color: "#01B574" }}>
+                    <IoSchoolOutline size="18px" />
+                  </VuiBox>
+                  <VuiBox>
+                    <VuiTypography variant="button" color="white" fontWeight="bold">
+                      Concluíram o Curso
+                    </VuiTypography>
+                    <VuiTypography variant="caption" color="text" sx={{ display: "block" }}>
+                      Alunos formados e cursos finalizados com êxito
+                    </VuiTypography>
+                  </VuiBox>
                 </VuiBox>
-              ) : (
-                <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 620 }}>
-                  <thead>
-                    <tr style={{ borderBottom: "1px solid rgba(255,255,255,0.08)" }}>
-                      <th style={{ textAlign: "left", padding: "10px 12px", color: "rgba(255,255,255,0.5)", fontSize: "11px", textTransform: "uppercase" }}>Visitante / Aluno</th>
-                      <th style={{ textAlign: "left", padding: "10px 12px", color: "rgba(255,255,255,0.5)", fontSize: "11px", textTransform: "uppercase" }}>Curso Visitado</th>
-                      <th style={{ textAlign: "left", padding: "10px 12px", color: "rgba(255,255,255,0.5)", fontSize: "11px", textTransform: "uppercase" }}>Contato</th>
-                      <th style={{ textAlign: "center", padding: "10px 12px", color: "rgba(255,255,255,0.5)", fontSize: "11px", textTransform: "uppercase" }}>Data da Experimental</th>
-                      <th style={{ textAlign: "center", padding: "10px 12px", color: "rgba(255,255,255,0.5)", fontSize: "11px", textTransform: "uppercase" }}>Situação</th>
-                      <th style={{ textAlign: "right", padding: "10px 12px", color: "rgba(255,255,255,0.5)", fontSize: "11px", textTransform: "uppercase" }} className="nao-imprimir">Ação</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {m.listaExpNaoMatriculados.map((al) => (
-                      <tr key={al.alunoId} style={{ borderBottom: "1px solid rgba(255,255,255,0.04)" }}>
-                        <td style={{ padding: "12px" }}>
-                          <VuiTypography variant="button" color="white" fontWeight="bold">
-                            {al.nome}
-                          </VuiTypography>
-                        </td>
-                        <td style={{ padding: "12px" }}>
-                          <VuiTypography variant="caption" color="text">
-                            {al.cursoExp}
-                          </VuiTypography>
-                        </td>
-                        <td style={{ padding: "12px" }}>
-                          <VuiTypography variant="caption" color="text">
-                            {al.contato}
-                          </VuiTypography>
-                        </td>
-                        <td style={{ textAlign: "center", padding: "12px" }}>
-                          <VuiTypography variant="caption" color="text">
-                            {formatarData(al.dataExp)}
-                          </VuiTypography>
-                        </td>
-                        <td style={{ textAlign: "center", padding: "12px" }}>
-                          <VuiTypography variant="caption" sx={{ color: "#FFB547", fontWeight: "bold", background: "rgba(255,181,71,0.12)", px: 1.2, py: 0.3, borderRadius: "6px" }}>
-                            Não matriculado
-                          </VuiTypography>
-                        </td>
-                        <td style={{ textAlign: "right", padding: "12px" }} className="nao-imprimir">
-                          <VuiButton
-                            size="small"
-                            color="info"
-                            variant="text"
-                            onClick={() => history.push(`/alunos/${al.alunoId}`)}
-                            sx={{ textTransform: "none", fontSize: "11px" }}
-                          >
-                            Ver cadastro
-                          </VuiButton>
-                        </td>
+                <VuiTypography variant="caption" sx={{ background: "rgba(1,181,116,0.15)", color: "#01B574", px: 1.5, py: 0.4, borderRadius: "20px", fontWeight: "bold" }}>
+                  {(m.listaConcluidos || []).length} concluído(s)
+                </VuiTypography>
+              </VuiBox>
+
+              <VuiBox sx={{ overflowX: "auto", maxHeight: "340px", overflowY: "auto", flexGrow: 1 }}>
+                {(m.listaConcluidos || []).length === 0 ? (
+                  <VuiBox sx={{ textAlign: "center", py: 4 }}>
+                    <VuiTypography variant="caption" color="text">
+                      Nenhum aluno com conclusão registrada até o momento.
+                    </VuiTypography>
+                  </VuiBox>
+                ) : (
+                  <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 420 }}>
+                    <thead>
+                      <tr style={{ borderBottom: "1px solid rgba(255,255,255,0.08)", position: "sticky", top: 0, background: "rgba(18,18,24,0.95)", zIndex: 1 }}>
+                        <th style={{ textAlign: "left", padding: "8px 10px", color: "rgba(255,255,255,0.5)", fontSize: "11px", textTransform: "uppercase" }}>Aluno</th>
+                        <th style={{ textAlign: "left", padding: "8px 10px", color: "rgba(255,255,255,0.5)", fontSize: "11px", textTransform: "uppercase" }}>Curso Concluído</th>
+                        <th style={{ textAlign: "center", padding: "8px 10px", color: "rgba(255,255,255,0.5)", fontSize: "11px", textTransform: "uppercase" }}>Data / Mês</th>
+                        <th style={{ textAlign: "right", padding: "8px 10px", color: "rgba(255,255,255,0.5)", fontSize: "11px", textTransform: "uppercase" }} className="nao-imprimir">Ação</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
-              )}
-            </VuiBox>
-          )}
-        </Card>
+                    </thead>
+                    <tbody>
+                      {(m.listaConcluidos || []).map((al, idx) => (
+                        <tr key={`${al.alunoId}_${idx}`} style={{ borderBottom: "1px solid rgba(255,255,255,0.04)" }}>
+                          <td style={{ padding: "10px" }}>
+                            <VuiTypography variant="button" color="white" fontWeight="bold" sx={{ fontSize: "13px" }}>
+                              {al.nome}
+                            </VuiTypography>
+                            <VuiTypography variant="caption" color="text" sx={{ display: "block", fontSize: "11px" }}>
+                              {al.contato || "—"}
+                            </VuiTypography>
+                          </td>
+                          <td style={{ padding: "10px" }}>
+                            <VuiTypography variant="caption" color="white" fontWeight="medium">
+                              {al.curso}
+                            </VuiTypography>
+                          </td>
+                          <td style={{ textAlign: "center", padding: "10px" }}>
+                            <VuiTypography variant="caption" sx={{ color: "#01B574", fontWeight: "bold", background: "rgba(1,181,116,0.12)", px: 1, py: 0.3, borderRadius: "6px" }}>
+                              {formatarData(al.dataConclusao)}
+                            </VuiTypography>
+                          </td>
+                          <td style={{ textAlign: "right", padding: "10px" }} className="nao-imprimir">
+                            <VuiButton
+                              size="small"
+                              color="info"
+                              variant="text"
+                              onClick={() => history.push(`/alunos/${al.alunoId}`)}
+                              sx={{ textTransform: "none", fontSize: "11px", p: "4px 8px" }}
+                            >
+                              Ver ficha
+                            </VuiButton>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                )}
+              </VuiBox>
+            </Card>
+          </Grid>
+
+          {/* Card 3: Matriculados pós-Aula Experimental */}
+          <Grid item xs={12} lg={6}>
+            <Card sx={{ height: "100%", display: "flex", flexDirection: "column" }}>
+              <VuiBox display="flex" justifyContent="space-between" alignItems="center" mb={2}>
+                <VuiBox display="flex" alignItems="center" gap="10px">
+                  <VuiBox sx={{ width: 34, height: 34, borderRadius: "8px", background: "rgba(44,217,255,0.15)", display: "flex", alignItems: "center", justifyContent: "center", color: "#2CD9FF" }}>
+                    <IoPersonAddOutline size="18px" />
+                  </VuiBox>
+                  <VuiBox>
+                    <VuiTypography variant="button" color="white" fontWeight="bold">
+                      Matriculados pós-Experimental
+                    </VuiTypography>
+                    <VuiTypography variant="caption" color="text" sx={{ display: "block" }}>
+                      Conversões de visitantes para alunos matriculados
+                    </VuiTypography>
+                  </VuiBox>
+                </VuiBox>
+                <VuiTypography variant="caption" sx={{ background: "rgba(44,217,255,0.15)", color: "#2CD9FF", px: 1.5, py: 0.4, borderRadius: "20px", fontWeight: "bold" }}>
+                  {m.listaExpMatriculados.length} convertido(s)
+                </VuiTypography>
+              </VuiBox>
+
+              <VuiBox sx={{ overflowX: "auto", maxHeight: "340px", overflowY: "auto", flexGrow: 1 }}>
+                {m.listaExpMatriculados.length === 0 ? (
+                  <VuiBox sx={{ textAlign: "center", py: 4 }}>
+                    <VuiTypography variant="caption" color="text">
+                      Nenhuma matrícula convertida no período selecionado.
+                    </VuiTypography>
+                  </VuiBox>
+                ) : (
+                  <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 420 }}>
+                    <thead>
+                      <tr style={{ borderBottom: "1px solid rgba(255,255,255,0.08)", position: "sticky", top: 0, background: "rgba(18,18,24,0.95)", zIndex: 1 }}>
+                        <th style={{ textAlign: "left", padding: "8px 10px", color: "rgba(255,255,255,0.5)", fontSize: "11px", textTransform: "uppercase" }}>Aluno</th>
+                        <th style={{ textAlign: "left", padding: "8px 10px", color: "rgba(255,255,255,0.5)", fontSize: "11px", textTransform: "uppercase" }}>Curso Matriculado</th>
+                        <th style={{ textAlign: "center", padding: "8px 10px", color: "rgba(255,255,255,0.5)", fontSize: "11px", textTransform: "uppercase" }}>Data Exp.</th>
+                        <th style={{ textAlign: "right", padding: "8px 10px", color: "rgba(255,255,255,0.5)", fontSize: "11px", textTransform: "uppercase" }} className="nao-imprimir">Ação</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {m.listaExpMatriculados.map((al) => (
+                        <tr key={al.alunoId} style={{ borderBottom: "1px solid rgba(255,255,255,0.04)" }}>
+                          <td style={{ padding: "10px" }}>
+                            <VuiTypography variant="button" color="white" fontWeight="bold" sx={{ fontSize: "13px" }}>
+                              {al.nome}
+                            </VuiTypography>
+                            <VuiTypography variant="caption" color="text" sx={{ display: "block", fontSize: "11px" }}>
+                              {al.contato || "—"}
+                            </VuiTypography>
+                          </td>
+                          <td style={{ padding: "10px" }}>
+                            <VuiTypography variant="caption" color="white" fontWeight="medium">
+                              {al.cursoMatriculado}
+                            </VuiTypography>
+                          </td>
+                          <td style={{ textAlign: "center", padding: "10px" }}>
+                            <VuiTypography variant="caption" color="text">
+                              {formatarData(al.dataExp)}
+                            </VuiTypography>
+                          </td>
+                          <td style={{ textAlign: "right", padding: "10px" }} className="nao-imprimir">
+                            <VuiButton
+                              size="small"
+                              color="info"
+                              variant="text"
+                              onClick={() => history.push(`/alunos/${al.alunoId}`)}
+                              sx={{ textTransform: "none", fontSize: "11px", p: "4px 8px" }}
+                            >
+                              Ver ficha
+                            </VuiButton>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                )}
+              </VuiBox>
+            </Card>
+          </Grid>
+
+          {/* Card 4: Fizeram Experimental e Não Matricularam */}
+          <Grid item xs={12} lg={6}>
+            <Card sx={{ height: "100%", display: "flex", flexDirection: "column" }}>
+              <VuiBox display="flex" justifyContent="space-between" alignItems="center" mb={2}>
+                <VuiBox display="flex" alignItems="center" gap="10px">
+                  <VuiBox sx={{ width: 34, height: 34, borderRadius: "8px", background: "rgba(255,181,71,0.15)", display: "flex", alignItems: "center", justifyContent: "center", color: "#FFB547" }}>
+                    <IoCallOutline size="18px" />
+                  </VuiBox>
+                  <VuiBox>
+                    <VuiTypography variant="button" color="white" fontWeight="bold">
+                      Fizeram Exp. e Não Matricularam
+                    </VuiTypography>
+                    <VuiTypography variant="caption" color="text" sx={{ display: "block" }}>
+                      Visitantes que realizaram a aula mas ainda não fecharam (leads quentes)
+                    </VuiTypography>
+                  </VuiBox>
+                </VuiBox>
+                <VuiTypography variant="caption" sx={{ background: "rgba(255,181,71,0.15)", color: "#FFB547", px: 1.5, py: 0.4, borderRadius: "20px", fontWeight: "bold" }}>
+                  {m.listaExpNaoMatriculados.length} oportunidade(s)
+                </VuiTypography>
+              </VuiBox>
+
+              <VuiBox sx={{ overflowX: "auto", maxHeight: "340px", overflowY: "auto", flexGrow: 1 }}>
+                {m.listaExpNaoMatriculados.length === 0 ? (
+                  <VuiBox sx={{ textAlign: "center", py: 4 }}>
+                    <VuiTypography variant="caption" color="text">
+                      Todos os visitantes que concluíram experimental efetivaram matrícula!
+                    </VuiTypography>
+                  </VuiBox>
+                ) : (
+                  <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 420 }}>
+                    <thead>
+                      <tr style={{ borderBottom: "1px solid rgba(255,255,255,0.08)", position: "sticky", top: 0, background: "rgba(18,18,24,0.95)", zIndex: 1 }}>
+                        <th style={{ textAlign: "left", padding: "8px 10px", color: "rgba(255,255,255,0.5)", fontSize: "11px", textTransform: "uppercase" }}>Visitante</th>
+                        <th style={{ textAlign: "left", padding: "8px 10px", color: "rgba(255,255,255,0.5)", fontSize: "11px", textTransform: "uppercase" }}>Curso Visitado</th>
+                        <th style={{ textAlign: "center", padding: "8px 10px", color: "rgba(255,255,255,0.5)", fontSize: "11px", textTransform: "uppercase" }}>Data Exp.</th>
+                        <th style={{ textAlign: "right", padding: "8px 10px", color: "rgba(255,255,255,0.5)", fontSize: "11px", textTransform: "uppercase" }} className="nao-imprimir">Contato</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {m.listaExpNaoMatriculados.map((al) => {
+                        const telLimpo = String(al.contato || "").replace(/\D/g, "");
+                        return (
+                          <tr key={al.alunoId} style={{ borderBottom: "1px solid rgba(255,255,255,0.04)" }}>
+                            <td style={{ padding: "10px" }}>
+                              <VuiTypography variant="button" color="white" fontWeight="bold" sx={{ fontSize: "13px" }}>
+                                {al.nome}
+                              </VuiTypography>
+                              <VuiTypography variant="caption" color="text" sx={{ display: "block", fontSize: "11px" }}>
+                                {al.contato || "Sem telefone"}
+                              </VuiTypography>
+                            </td>
+                            <td style={{ padding: "10px" }}>
+                              <VuiTypography variant="caption" color="text">
+                                {al.cursoExp}
+                              </VuiTypography>
+                            </td>
+                            <td style={{ textAlign: "center", padding: "10px" }}>
+                              <VuiTypography variant="caption" color="text">
+                                {formatarData(al.dataExp)}
+                              </VuiTypography>
+                            </td>
+                            <td style={{ textAlign: "right", padding: "10px" }} className="nao-imprimir">
+                              <VuiBox display="flex" justifyContent="flex-end" alignItems="center" gap="4px">
+                                {telLimpo && (
+                                  <VuiButton
+                                    size="small"
+                                    color="success"
+                                    variant="outlined"
+                                    component="a"
+                                    href={`https://wa.me/55${telLimpo}`}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    sx={{ textTransform: "none", fontSize: "11px", p: "4px 8px" }}
+                                  >
+                                    WhatsApp
+                                  </VuiButton>
+                                )}
+                                <VuiButton
+                                  size="small"
+                                  color="info"
+                                  variant="text"
+                                  onClick={() => history.push(`/alunos/${al.alunoId}`)}
+                                  sx={{ textTransform: "none", fontSize: "11px", p: "4px 8px" }}
+                                >
+                                  Ficha
+                                </VuiButton>
+                              </VuiBox>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                )}
+              </VuiBox>
+            </Card>
+          </Grid>
+        </Grid>
       </VuiBox>
     </DashboardLayout>
   );
