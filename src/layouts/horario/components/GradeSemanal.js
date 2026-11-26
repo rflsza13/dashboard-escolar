@@ -1,6 +1,9 @@
 import { Fragment, useState, useEffect } from "react";
 import PropTypes from "prop-types";
 
+import IconButton from "@mui/material/IconButton";
+import { IoCheckmark, IoClose } from "react-icons/io5";
+
 import VuiBox from "components/VuiBox";
 import VuiTypography from "components/VuiTypography";
 
@@ -42,11 +45,13 @@ function horaInicioFaixa(faixa) {
   return faixa.split(" - ")[0].trim();
 }
 
-function GradeSemanal({ dias, sessoes, onSelecionar, feriados, onNovaCelula }) {
+function GradeSemanal({ dias, sessoes, onSelecionar, feriados, onNovaCelula, onMarcar }) {
   const hoje = hojeIso();
   // com um único dia (visão "Hoje") sobra espaço: colunas largas e cards com mais informação
   const umDia = dias.length === 1;
   const larguraColuna = umDia ? 320 : 160;
+  // botões de presença/falta ao passar o mouse: só na grade do dia (a semanal fica como está)
+  const rapido = umDia && Boolean(onMarcar);
 
   // Atualiza hora atual a cada minuto
   const [horaAtual, setHoraAtual] = useState(horaAtualStr);
@@ -178,13 +183,21 @@ function GradeSemanal({ dias, sessoes, onSelecionar, feriados, onNovaCelula }) {
                               overflow: "hidden",
                               cursor: "pointer",
                               pl: "6px",
-                              pr: barra.marcada ? "14px" : "11px",
+                              pr: barra.marcada ? "18px" : "14px",
                               py: umDia ? "7px" : "3px",
                               minHeight: umDia ? "44px" : "24px",
                               borderRadius: "6px",
                               borderLeft: `3px solid ${s.cor}`,
                               background: misturarCor(s.cor, FUNDO_CARD, 0.34),
                               "&:hover": { background: misturarCor(s.cor, FUNDO_CARD, 0.52) },
+                              ...(rapido
+                                ? {
+                                    "& .acoes-rapidas": { display: "none" },
+                                    "&:hover .acoes-rapidas": { display: "flex" },
+                                    "&:hover .hora-card": { display: "none" },
+                                    "@media (hover: none)": { "& .acoes-rapidas": { display: "flex" }, "& .hora-card": { display: "none" } },
+                                  }
+                                : {}),
                             }}
                           >
                             {/* barra de situação no canto direito: verde = presente, vermelha = falta, cinza = pendente */}
@@ -195,7 +208,7 @@ function GradeSemanal({ dias, sessoes, onSelecionar, feriados, onNovaCelula }) {
                                 top: 0,
                                 right: 0,
                                 bottom: 0,
-                                width: barra.marcada ? "8px" : "5px",
+                                width: barra.marcada ? "11px" : "7px",
                                 background: barra.cor,
                                 boxShadow: barra.marcada ? `0 0 8px ${barra.cor}` : "none",
                               }}
@@ -226,18 +239,41 @@ function GradeSemanal({ dias, sessoes, onSelecionar, feriados, onNovaCelula }) {
                               )}
                             </VuiBox>
 
-                            <VuiTypography
-                              variant="caption"
-                              color="text"
-                              sx={{
-                                fontSize: umDia ? "11px" : "10px",
-                                whiteSpace: "nowrap",
-                                opacity: 0.9,
-                                flexShrink: 0,
-                              }}
-                            >
-                              {umDia ? `${s.hora}–${fimDaAula(s.hora, s.duracao)}` : s.hora}
-                            </VuiTypography>
+                            <VuiBox className="hora-card" sx={{ display: "flex", flexShrink: 0 }}>
+                              <VuiTypography
+                                variant="caption"
+                                color="text"
+                                sx={{
+                                  fontSize: umDia ? "11px" : "10px",
+                                  whiteSpace: "nowrap",
+                                  opacity: 0.9,
+                                }}
+                              >
+                                {umDia ? `${s.hora}–${fimDaAula(s.hora, s.duracao)}` : s.hora}
+                              </VuiTypography>
+                            </VuiBox>
+                            {rapido && (
+                              <VuiBox className="acoes-rapidas" sx={{ alignItems: "center", gap: "6px", flexShrink: 0 }}>
+                                <IconButton
+                                  size="small"
+                                  title="Marcar presença"
+                                  aria-label={`Marcar presença de ${s.aluno}`}
+                                  onClick={(e) => onMarcar(e, s, "Presente")}
+                                  sx={{ width: 30, height: 30, color: "#fff", background: "#01B574", "&:hover": { background: "#019a63" } }}
+                                >
+                                  <IoCheckmark size="17px" />
+                                </IconButton>
+                                <IconButton
+                                  size="small"
+                                  title="Marcar falta"
+                                  aria-label={`Marcar falta de ${s.aluno}`}
+                                  onClick={(e) => onMarcar(e, s, "Falta")}
+                                  sx={{ width: 30, height: 30, color: "#fff", background: "#E31A1A", "&:hover": { background: "#bf1414" } }}
+                                >
+                                  <IoClose size="17px" />
+                                </IconButton>
+                              </VuiBox>
+                            )}
                           </VuiBox>
                         );
                       })}
@@ -253,13 +289,14 @@ function GradeSemanal({ dias, sessoes, onSelecionar, feriados, onNovaCelula }) {
   );
 }
 
-GradeSemanal.defaultProps = { feriados: [], onNovaCelula: null };
+GradeSemanal.defaultProps = { feriados: [], onNovaCelula: null, onMarcar: null };
 GradeSemanal.propTypes = {
   feriados: PropTypes.array,
   dias: PropTypes.arrayOf(PropTypes.string).isRequired,
   sessoes: PropTypes.array.isRequired,
   onSelecionar: PropTypes.func.isRequired,
   onNovaCelula: PropTypes.func,
+  onMarcar: PropTypes.func,
 };
 
 export default GradeSemanal;

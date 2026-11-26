@@ -162,3 +162,8 @@ O que mudou:
   alerta "Certificados para emitir" (conclusões dos últimos 90 dias). "Marcar como emitido" grava na aba Movimentacoes (tipo Certificado).
 - **Horário das aulas:** abre no dia atual (cards mais largos); o botão "Semana completa" mostra a grade de segunda a sábado.
 - **BuddyCoins:** pesquisa de aluno ao lançar pontos e ao resgatar prêmio.
+
+## Atualização: data de nascimento e sexo do aluno na planilha
+A aba **Alunos** ganha duas colunas no fim: **Data de nascimento** (G) e **Gênero / Sexo** (H). Elas são criadas sozinhas na primeira leitura
+depois de colar o novo `Code.gs` e publicar uma nova versão da implantação (ou rode `prepararNovidades` uma vez). Alunos já cadastrados vão
+aparecer sem esses dados, porque eles nunca foram gravados: preencha pela ficha do aluno (Editar). A partir daí entram nos relatórios.

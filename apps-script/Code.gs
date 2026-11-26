@@ -10,7 +10,7 @@
 const CLIENT_ID = 'COLE-AQUI-O-ID-DE-CLIENTE.apps.googleusercontent.com';
 
 const SCHEMA = {
-  Alunos:     [['id','t'],['nome','t'],['responsavel','t'],['contato','t'],['ativo','t'],['obs','t']],
+  Alunos:     [['id','t'],['nome','t'],['responsavel','t'],['contato','t'],['ativo','t'],['obs','t'],['dataNascimento','d'],['genero','t']],
   Cursos:     [['id','t'],['nome','t'],['cor','t'],['ativo','t'],['grupo','t']],
   Professores: [['id','t'],['nome','t'],['contato','t'],['cor','t'],['ativo','t'],['obs','t']],
   Escala:     [['id','t'],['professorId','t'],['dia','t'],['inicio','h'],['fim','h'],['cursoId','t'],['obs','t']],
@@ -323,8 +323,12 @@ function garantirColuna(aba, indice, prefixo, titulo, largura) {
   const chave = aba + indice;
   if (_colunasOk[chave]) return;
   const sh = planilha().getSheetByName(aba);
-  if (sh && String(sh.getRange(1, indice).getValue()).indexOf(prefixo) !== 0) {
-    sh.insertColumnBefore(indice);
+  // a planilha pode ter menos colunas que o necessário: acrescenta as que faltam no fim
+  if (sh && indice > sh.getMaxColumns()) sh.insertColumnsAfter(sh.getMaxColumns(), indice - sh.getMaxColumns());
+  const atual = sh ? String(sh.getRange(1, indice).getValue()) : '';
+  if (sh && atual.indexOf(prefixo) !== 0) {
+    // só abre espaço (inserindo coluna) se a posição já estiver ocupada por outra coisa
+    if (atual.trim() !== '') sh.insertColumnBefore(indice);
     sh.getRange(1, indice - 1).copyTo(sh.getRange(1, indice), SpreadsheetApp.CopyPasteType.PASTE_FORMAT, false);
     sh.getRange(1, indice).setValue(titulo);
     sh.setColumnWidth(indice, largura);
@@ -333,12 +337,18 @@ function garantirColuna(aba, indice, prefixo, titulo, largura) {
   _colunasOk[chave] = true;
 }
 function garantirColunasNovas() {
+  garantirColuna('Alunos', 7, 'Data de nascimento', 'Data de nascimento', 150);
+  garantirColuna('Alunos', 8, 'Gênero', 'Gênero / Sexo', 130);
   garantirColuna('Aulas', 11, 'ProfessorID', 'ProfessorID (aula experimental)', 180);
   garantirColuna('Modulos', 6, 'Fase', 'Fase (opcional)', 130);
   garantirColuna('Progresso', 6, 'Nota', 'Nota do módulo (0 a 10)', 150);
 }
 
 function lerTabela(nome) {
+  if (nome === 'Alunos') {
+    garantirColuna('Alunos', 7, 'Data de nascimento', 'Data de nascimento', 150);
+    garantirColuna('Alunos', 8, 'Gênero', 'Gênero / Sexo', 130);
+  }
   if (nome === 'Aulas') garantirColuna('Aulas', 11, 'ProfessorID', 'ProfessorID (aula experimental)', 180);
   if (nome === 'Modulos') garantirColuna('Modulos', 6, 'Fase', 'Fase (opcional)', 130);
   if (nome === 'Progresso') garantirColuna('Progresso', 6, 'Nota', 'Nota do módulo (0 a 10)', 150);

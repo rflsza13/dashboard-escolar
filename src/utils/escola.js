@@ -133,7 +133,13 @@ export function faixaDaAula(hora) {
 
 export const novoId = (prefixo) => prefixo + Math.random().toString(36).slice(2, 8).toUpperCase();
 export const corValida = (c, fallback = "#8A8A8A") => (/^#[0-9a-fA-F]{6}$/.test(c || "") ? c : fallback);
-const mapa = (lista) => (lista || []).reduce((acc, x) => ({ ...acc, [x.id]: x }), {});
+const mapa = (lista) => {
+  const o = {};
+  (lista || []).forEach((x) => {
+    o[x.id] = x;
+  });
+  return o;
+};
 
 /* ---------- cursos: tipo (cor/legenda) e área (filtro da grade e professores) ----------
    Tipos: Programação, Robótica 1, Robótica 2 e Inglês (definidos pelo nome do curso; qualquer outro
@@ -392,10 +398,34 @@ export function indexarAulas(dados) {
   return idx;
 }
 
+// Módulos por curso (já em ordem) e progresso por matrícula, montados uma vez para cada conjunto de dados.
+// O cache vale enquanto as listas de módulos e de progresso forem as mesmas (cada atualização gera listas novas).
+const SEM_ITENS = [];
+const cacheProgresso = new WeakMap();
+function indicesDeProgresso(dados) {
+  const modulos = dados.modulos || SEM_ITENS;
+  const progresso = dados.progresso || SEM_ITENS;
+  const guardado = cacheProgresso.get(progresso);
+  if (guardado && guardado.modulos === modulos) return guardado;
+  const porCurso = {};
+  modulos.forEach((m) => {
+    (porCurso[m.cursoId] = porCurso[m.cursoId] || []).push(m);
+  });
+  Object.keys(porCurso).forEach((k) => porCurso[k].sort((a, b) => a.ordem - b.ordem));
+  const porMatricula = {};
+  progresso.forEach((p) => {
+    (porMatricula[p.matriculaId] = porMatricula[p.matriculaId] || []).push(p);
+  });
+  const novo = { modulos, porCurso, porMatricula };
+  cacheProgresso.set(progresso, novo);
+  return novo;
+}
+
 // Estado de cada módulo do curso para uma matrícula: concluído, atual ou pendente
 export function progressoMatricula(dados, mat) {
-  const modulos = (dados.modulos || []).filter((m) => m.cursoId === mat.cursoId).sort((a, b) => a.ordem - b.ordem);
-  const prog = (dados.progresso || []).filter((p) => p.matriculaId === mat.id);
+  const indices = indicesDeProgresso(dados);
+  const modulos = indices.porCurso[mat.cursoId] || SEM_ITENS;
+  const prog = indices.porMatricula[mat.id] || SEM_ITENS;
   const itens = modulos.map((modulo) => {
     const reg = prog.find((p) => p.moduloId === modulo.id);
     const concluido = !!reg || Number(modulo.ordem) < Number(mat.moduloAtual) || mat.status === "Concluída";
@@ -843,13 +873,15 @@ export function certificadosPendentes(dados, hoje, dias = DIAS_ALERTA_CERTIFICAD
   const corte = somarDias(hoje, -dias);
   const movs = dados.movimentacoes || [];
   const emitidos = new Set(movs.filter((x) => x.tipo === TIPO_CERTIFICADO).map((x) => x.matriculaId));
+  const datasConclusao = {};
+  movs.forEach((x) => {
+    if (x.tipo === "Conclusão") (datasConclusao[x.matriculaId] = datasConclusao[x.matriculaId] || []).push(x.data);
+  });
+  const progPorMat = indicesDeProgresso(dados).porMatricula;
   return (dados.matriculas || [])
     .filter((m) => m.status === "Concluída" && !emitidos.has(m.id))
     .map((m) => {
-      const datas = [
-        ...movs.filter((x) => x.matriculaId === m.id && x.tipo === "Conclusão").map((x) => x.data),
-        ...(dados.progresso || []).filter((p) => p.matriculaId === m.id).map((p) => p.concluidoEm),
-      ].filter(Boolean);
+      const datas = [...(datasConclusao[m.id] || []), ...(progPorMat[m.id] || []).map((p) => p.concluidoEm)].filter(Boolean);
       const concluidoEm = datas.sort().pop() || "";
       return {
         matriculaId: m.id,

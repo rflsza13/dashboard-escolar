@@ -122,6 +122,8 @@ export function EscolaProvider({ children }) {
   const stateRef = useRef(state);
   stateRef.current = state;
   const tokenRef = useRef(null);
+  const assinaturaRef = useRef("");
+  const ultimaCargaRef = useRef(Date.now());
 
   const sair = useCallback((mensagem) => {
     if (tokenRef.current && !isDemo) api.sair(tokenRef.current).catch(() => {});
@@ -150,6 +152,11 @@ export function EscolaProvider({ children }) {
       if (!silencioso) dispatch({ type: "FASE", fase: "carregando", erro: null });
       try {
         const r = await api.carregar(tokenRef.current);
+        ultimaCargaRef.current = Date.now();
+        // atualização automática: se nada mudou na planilha, não troca os dados (evita recalcular e redesenhar tudo à toa)
+        const assinatura = JSON.stringify([r.eu, r.dados, r.config]);
+        if (silencioso && assinatura === assinaturaRef.current) return;
+        assinaturaRef.current = assinatura;
         dispatch({ type: "CARREGADO", user: r.eu, dados: r.dados, config: r.config });
         gravarCache(r.dados, r.eu, r.config);
       } catch (e) {
@@ -195,11 +202,21 @@ export function EscolaProvider({ children }) {
 
   // atualização automática (vários professores usando ao mesmo tempo)
   useEffect(() => {
+    const INTERVALO = 180000;
     const id = setInterval(() => {
       const s = stateRef.current;
       if (s.fase === "pronto" && s.pendentes === 0 && !document.hidden) carregar(true);
-    }, 180000);
-    return () => clearInterval(id);
+    }, INTERVALO);
+    // aba escondida não atualiza; ao voltar para ela, atualiza na hora se já passou o intervalo
+    const aoVoltar = () => {
+      const s = stateRef.current;
+      if (!document.hidden && s.fase === "pronto" && s.pendentes === 0 && Date.now() - ultimaCargaRef.current > INTERVALO) carregar(true);
+    };
+    document.addEventListener("visibilitychange", aoVoltar);
+    return () => {
+      clearInterval(id);
+      document.removeEventListener("visibilitychange", aoVoltar);
+    };
   }, [carregar]);
 
   /* ----- gravações com atualização imediata na tela e desfazer se falhar ----- */

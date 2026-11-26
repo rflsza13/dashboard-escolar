@@ -26,6 +26,11 @@ function NovaAulaDialog({ open, dataInicial, horaInicial, onClose }) {
   const [erros, setErros] = useState({});
   const [ocupado, setOcupado] = useState(false);
 
+  // Os dados são recarregados sozinhos de tempos em tempos. Por isso o formulário só é reiniciado quando a janela ABRE
+  // (ou quando muda a célula escolhida na grade); ler dados/recursos pelo ref evita apagar o que já foi digitado.
+  const ctxRef = useRef({});
+  ctxRef.current = { cursoPadrao: (dados.cursos[0] || {}).id || "", experimentais: recursos.experimentais };
+
   useEffect(() => {
     if (!open) return;
     setErros({});
@@ -33,12 +38,17 @@ function NovaAulaDialog({ open, dataInicial, horaInicial, onClose }) {
     setBuscaAberta(false);
     setF({
       ...vazio(),
-      tipo: recursos.experimentais ? "Experimental" : "Avulsa",
+      tipo: ctxRef.current.experimentais ? "Experimental" : "Avulsa",
       data: dataInicial || hojeIso(),
       hora: horaInicial || "",
-      cursoId: (dados.cursos[0] || {}).id || "",
+      cursoId: ctxRef.current.cursoPadrao,
     });
-  }, [open, dataInicial, horaInicial, dados.cursos, recursos.experimentais]);
+  }, [open, dataInicial, horaInicial]);
+
+  // se os cursos só chegaram depois de abrir, preenche o curso sem mexer no resto
+  useEffect(() => {
+    if (open && !f.cursoId && ctxRef.current.cursoPadrao) setF((x) => (x.cursoId ? x : { ...x, cursoId: ctxRef.current.cursoPadrao }));
+  }, [open, f.cursoId, dados.cursos]);
 
   const set = (k) => (e) => setF((x) => ({ ...x, [k]: e.target.value }));
   const alunoDe = (id) => (dados.alunos.find((a) => a.id === id) || {}).nome || "?";

@@ -89,7 +89,7 @@ function ListaDiaria({ dia, sessoes, feriado, onSelecionar }) {
                 top: 0,
                 right: 0,
                 bottom: 0,
-                width: barra.marcada ? "8px" : "5px",
+                width: barra.marcada ? "11px" : "7px",
                 background: barra.cor,
                 boxShadow: barra.marcada ? `0 0 8px ${barra.cor}` : "none",
               }}
@@ -113,7 +113,7 @@ function ListaDiaria({ dia, sessoes, feriado, onSelecionar }) {
 }
 
 function Horario() {
-  const { dados, pode, excluir, recursos, areaPerfil } = useEscola();
+  const { dados, pode, excluir, recursos, areaPerfil, marcarSessao, toast } = useEscola();
   const cfg = { ...DEFAULT_CONFIG, ...dados.config };
   const muiTheme = useTheme();
   const isMobile = useMediaQuery(muiTheme.breakpoints.down("md"));
@@ -151,6 +151,13 @@ function Horario() {
 
   const legenda = useMemo(() => legendaDeCursos(dados.cursos), [dados.cursos]);
   const semanaAtual = segunda === segundaDaSemana(hojeIso());
+
+  // atalho do card (grade do dia): presença ou falta sem abrir a janela da aula
+  const marcarRapido = async (e, s, acao) => {
+    e.stopPropagation();
+    const ok = await marcarSessao(s, acao);
+    if (ok) toast(acao === "Presente" ? `Presença de ${s.aluno} confirmada ✓` : `Falta de ${s.aluno} registrada`, acao === "Presente" ? "success" : "warning");
+  };
 
   // pula o domingo ao andar dia a dia (a grade vai de segunda a sábado)
   const passoDia = (d, n) => {
@@ -328,6 +335,7 @@ function Horario() {
                 sessoes={sessoes}
                 feriados={feriadosSemana}
                 onSelecionar={setAula}
+                onMarcar={pode.professor && !usarSemana ? marcarRapido : undefined}
                 onNovaCelula={pode.professor ? (data, hora) => { setNovaInicial({ data, hora }); setNova(true); } : undefined}
               />
               {sessoes.length === 0 && (
