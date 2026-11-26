@@ -162,7 +162,7 @@ function Cursos() {
       <FormDialog
         open={cursoDlg.open}
         titulo={cursoDlg.curso ? "Editar curso" : "Novo curso"}
-        descricao="O tipo do curso (Programação, Robótica 1, Robótica 2 ou Inglês) vem do nome: cursos do mesmo tipo usam a mesma cor na grade, a do primeiro curso do tipo. Use “Robótica 1”, “Robótica 2” ou “Inglês” no nome."
+        descricao="O tipo do curso (Programação, Robótica 1, Robótica 2, Maker 2 ou Inglês) vem do nome: cursos do mesmo tipo usam a mesma cor na grade, a do primeiro curso do tipo. Use “Robótica 1”, “Robótica 2” ou “Inglês” no nome."
         campos={[
           { chave: "nome", rotulo: "Nome do curso", obrigatorio: true, cheia: true },
           { chave: "cor", rotulo: "Cor na grade", tipo: "cor" },

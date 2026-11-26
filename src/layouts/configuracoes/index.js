@@ -46,7 +46,7 @@ const TODOS = CAMPOS.reduce((l, g) => [...l, ...g.itens], []);
 
 const paraTexto = (cfg) => TODOS.reduce((o, c) => ({ ...o, [c.chave]: String(cfg[c.chave] === undefined || cfg[c.chave] === null ? "" : cfg[c.chave]) }), {});
 
-// uma cor por tipo de curso (Programação, Robótica 1, Robótica 2, Inglês): a do primeiro curso do tipo
+// uma cor por tipo de curso (Programação, Robótica 1, Robótica 2, Maker 2, Inglês): a do primeiro curso do tipo
 const coresDosTipos = (cursos) => {
   const m = {};
   cursosComCor(cursos).forEach((c) => {

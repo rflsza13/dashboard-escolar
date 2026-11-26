@@ -25,6 +25,33 @@ import DashboardLayout from "examples/LayoutContainers/DashboardLayout";
 import BarraStatus from "layouts/shared/BarraStatus";
 import { useEscola } from "context/escola";
 import { calcularMetricasGerais, formatarData } from "utils/escola";
+import {
+  conclusoesCertificados,
+  cargaPorProfessor,
+  evolucaoPorPeriodo,
+  faltasPorDiaHorario,
+  funilExperimentais,
+  janelaDoPeriodo,
+  ocupacaoGrade,
+  performanceAgrupada,
+  reposicoes,
+  resumoPeriodo,
+  saidasPorMotivo,
+  tempoPorModulo,
+} from "utils/relatorios";
+import { BarraDistribuicao, CardKpi, Seta, Variacao } from "layouts/relatorios/componentes";
+import {
+  CargaProfessor,
+  ConclusoesCertificados,
+  EvolucaoMensal,
+  FaltasDiaHorario,
+  FunilExperimentais,
+  OcupacaoGrade,
+  PerformanceAgrupada,
+  Reposicoes,
+  SaidasPorMotivo,
+  TempoPorModulo,
+} from "layouts/relatorios/secoes";
 
 const OPCOES_PERIODO = [
   { rotulo: "Últimos 30 dias", valor: 30 },
@@ -33,75 +60,28 @@ const OPCOES_PERIODO = [
   { rotulo: "Histórico completo", valor: null },
 ];
 
-function CardKpi({ titulo, valor, detalhe, icone: Icone, cor = "#e3242b" }) {
-  return (
-    <Card sx={{ height: "100%", p: "18px 20px" }}>
-      <VuiBox display="flex" justifyContent="space-between" alignItems="flex-start" mb={1}>
-        <VuiTypography variant="caption" color="text" fontWeight="medium" textTransform="uppercase" sx={{ fontSize: "11px", letterSpacing: "0.5px" }}>
-          {titulo}
-        </VuiTypography>
-        {Icone && (
-          <VuiBox sx={{ width: 34, height: 34, borderRadius: "8px", background: `${cor}22`, display: "flex", alignItems: "center", justifyContent: "center", color: cor }}>
-            <Icone size="18px" />
-          </VuiBox>
-        )}
-      </VuiBox>
-      <VuiTypography variant="h3" color="white" fontWeight="bold" sx={{ mb: 0.5, lineHeight: 1.1 }}>
-        {valor}
-      </VuiTypography>
-      {detalhe && (
-        <VuiTypography variant="caption" color="text" sx={{ fontSize: "11px", opacity: 0.85 }}>
-          {detalhe}
-        </VuiTypography>
-      )}
-    </Card>
-  );
-}
-
-// Barra de distribuição proporcional com dimensões exatas em CSS (sem conflito de temas)
-function BarraDistribuicao({ rotulo, total, totalGeral, cor = "#e3242b" }) {
-  const pct = totalGeral > 0 ? Math.round((total / totalGeral) * 100) : 0;
-  return (
-    <VuiBox mb={2}>
-      <VuiBox display="flex" justifyContent="space-between" alignItems="center" mb={0.8}>
-        <VuiTypography variant="caption" color="white" fontWeight="medium" sx={{ fontSize: "12px" }}>
-          {rotulo}
-        </VuiTypography>
-        <VuiTypography variant="caption" color="text" sx={{ fontSize: "12px" }}>
-          <strong style={{ color: "#fff" }}>{total}</strong> ({pct}%)
-        </VuiTypography>
-      </VuiBox>
-      <VuiBox
-        sx={{
-          width: "100%",
-          height: 9,
-          borderRadius: "5px",
-          backgroundColor: "rgba(255, 255, 255, 0.08)",
-          overflow: "hidden",
-          position: "relative",
-        }}
-      >
-        <VuiBox
-          sx={{
-            width: `${Math.max(pct, total > 0 ? 3 : 0)}%`,
-            height: "100%",
-            borderRadius: "5px",
-            backgroundColor: cor,
-            boxShadow: `0 0 8px ${cor}55`,
-            transition: "width 0.6s cubic-bezier(0.4, 0, 0.2, 1)",
-          }}
-        />
-      </VuiBox>
-    </VuiBox>
-  );
-}
-
 export default function Relatorios() {
-  const { dados } = useEscola();
+  const { dados, recursos } = useEscola();
   const history = useHistory();
   const [periodo, setPeriodo] = useState(30);
 
   const m = useMemo(() => calcularMetricasGerais(dados, periodo), [dados, periodo]);
+
+  // análises da build 1.1.3 (todas recalculadas quando os dados ou o período mudam)
+  const j = useMemo(() => janelaDoPeriodo(periodo), [periodo]);
+  const atual = useMemo(() => resumoPeriodo(dados, j, false), [dados, j]);
+  const anterior = useMemo(() => (j.anterior ? resumoPeriodo(dados, j.anterior, false) : null), [dados, j]);
+  const funil = useMemo(() => funilExperimentais(dados, j, true), [dados, j]);
+  const evolucao = useMemo(() => evolucaoPorPeriodo(dados, periodo), [dados, periodo]);
+  const motivos = useMemo(() => saidasPorMotivo(dados, j), [dados, j]);
+  const faltasDH = useMemo(() => faltasPorDiaHorario(dados, j), [dados, j]);
+  const repos = useMemo(() => reposicoes(dados, j), [dados, j]);
+  const ocupacao = useMemo(() => ocupacaoGrade(dados), [dados]);
+  const carga = useMemo(() => (recursos.professores ? cargaPorProfessor(dados, j) : []), [dados, j, recursos.professores]);
+  const tempoModulos = useMemo(() => tempoPorModulo(dados), [dados]);
+  const concl = useMemo(() => conclusoesCertificados(dados, j), [dados, j]);
+  const grupos = useMemo(() => performanceAgrupada(dados, j), [dados, j]);
+  const abrirAluno = (id) => history.push(`/alunos/${id}`);
 
   const imprimirPdf = () => {
     window.print();
@@ -126,6 +106,7 @@ export default function Relatorios() {
             }
             .MuiTypography-root { color: #111 !important; }
             .MuiTypography-caption { color: #555 !important; }
+            .acordeon-conteudo { display: block !important; }
             table { width: 100% !important; border-collapse: collapse !important; }
             th, td { border-bottom: 1px solid #ddd !important; padding: 6px !important; color: #111 !important; }
           }
@@ -190,6 +171,15 @@ export default function Relatorios() {
               detalhe={`${m.alunosInativos} saíram · ${m.alunosConcluidos || 0} formados`}
               icone={IoPeopleOutline}
               cor="#2CD9FF"
+              extra={
+                anterior && (
+                  <Seta
+                    sentido={atual.saldo > 0 ? "up" : atual.saldo < 0 ? "down" : "igual"}
+                    bom={atual.saldo === 0 ? null : atual.saldo > 0}
+                    texto={`saldo de ${atual.saldo > 0 ? "+" : ""}${atual.saldo} no período (${atual.novos} novos, ${atual.saidas} saídas)`}
+                  />
+                )
+              }
             />
           </Grid>
           <Grid item xs={12} sm={6} md={2.4}>
@@ -208,6 +198,7 @@ export default function Relatorios() {
               detalhe={`Evasão de ${m.taxaEvasao}% no período`}
               icone={IoTrendingUp}
               cor="#01B574"
+              extra={anterior && <Variacao atual={atual.saidas} anterior={anterior.saidas} sufixo=" saída(s)" melhorSeMenor />}
             />
           </Grid>
           <Grid item xs={12} sm={6} md={2.4}>
@@ -217,6 +208,7 @@ export default function Relatorios() {
               detalhe={`${m.totalPresencas} presenças / ${m.totalFaltas} faltas`}
               icone={IoCheckmarkCircleOutline}
               cor="#38D79F"
+              extra={anterior && <Variacao atual={atual.frequencia} anterior={anterior.frequencia} sufixo=" pp" />}
             />
           </Grid>
           <Grid item xs={12} sm={6} md={2.4}>
@@ -226,7 +218,18 @@ export default function Relatorios() {
               detalhe={`${m.matriculadosExp} de ${m.expRealizadas} realizadas (${m.totalExp} marcadas)`}
               icone={IoRibbonOutline}
               cor="#FFB547"
+              extra={anterior && <Variacao atual={atual.conversaoExp} anterior={anterior.conversaoExp} sufixo=" pp" />}
             />
+          </Grid>
+        </Grid>
+
+        {/* 2. EVOLUÇÃO DE ALUNOS (segue o período escolhido) E SAÍDAS POR MOTIVO */}
+        <Grid container spacing={2.5} mb={3}>
+          <Grid item xs={12} lg={8}>
+            <EvolucaoMensal serie={evolucao.pontos} descricao={evolucao.descricao} />
+          </Grid>
+          <Grid item xs={12} lg={4}>
+            <SaidasPorMotivo dados={motivos} />
           </Grid>
         </Grid>
 
@@ -236,10 +239,10 @@ export default function Relatorios() {
           <Grid item xs={12} md={4}>
             <Card sx={{ height: "100%" }}>
               <VuiBox mb={2}>
-                <VuiTypography variant="lg" color="white" fontWeight="bold">
+                <VuiTypography variant="lg" color="white" fontWeight="bold" sx={{ display: "block" }}>
                   Perfil por Faixa Etária
                 </VuiTypography>
-                <VuiTypography variant="caption" color="text">
+                <VuiTypography variant="caption" color="text" sx={{ display: "block" }}>
                   Distribuição dos alunos ativos por idade
                 </VuiTypography>
               </VuiBox>
@@ -272,10 +275,10 @@ export default function Relatorios() {
             <Card sx={{ height: "100%" }}>
               <VuiBox display="flex" justifyContent="space-between" alignItems="flex-start" mb={2}>
                 <VuiBox>
-                  <VuiTypography variant="lg" color="white" fontWeight="bold">
+                  <VuiTypography variant="lg" color="white" fontWeight="bold" sx={{ display: "block" }}>
                     Meninos e Meninas
                   </VuiTypography>
-                  <VuiTypography variant="caption" color="text">
+                  <VuiTypography variant="caption" color="text" sx={{ display: "block" }}>
                     Proporção de gênero entre alunos ativos
                   </VuiTypography>
                 </VuiBox>
@@ -360,10 +363,10 @@ export default function Relatorios() {
           <Grid item xs={12} md={4}>
             <Card sx={{ height: "100%" }}>
               <VuiBox mb={2}>
-                <VuiTypography variant="lg" color="white" fontWeight="bold">
+                <VuiTypography variant="lg" color="white" fontWeight="bold" sx={{ display: "block" }}>
                   Tempo de Permanência
                 </VuiTypography>
-                <VuiTypography variant="caption" color="text">
+                <VuiTypography variant="caption" color="text" sx={{ display: "block" }}>
                   Há quanto tempo os alunos estudam na escola
                 </VuiTypography>
               </VuiBox>
@@ -390,74 +393,44 @@ export default function Relatorios() {
           </Grid>
         </Grid>
 
-        {/* 3. PERFORMANCE POR CURSO */}
-        <Card sx={{ mb: 3 }}>
-          <VuiBox mb={2}>
-            <VuiTypography variant="lg" color="white" fontWeight="bold">
-              Performance por Curso
-            </VuiTypography>
-            <VuiTypography variant="caption" color="text">
-              Comparativo de assiduidade, média de notas e módulos concluídos
-            </VuiTypography>
-          </VuiBox>
+        {/* 5. FALTAS POR DIA/HORÁRIO E REPOSIÇÕES */}
+        <Grid container spacing={2.5} mb={3}>
+          <Grid item xs={12} lg={6}>
+            <FaltasDiaHorario dados={faltasDH} />
+          </Grid>
+          <Grid item xs={12} lg={6}>
+            <Reposicoes dados={repos} onAbrirAluno={abrirAluno} />
+          </Grid>
+        </Grid>
 
-          <VuiBox sx={{ overflowX: "auto" }}>
-            <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 620 }}>
-              <thead>
-                <tr style={{ borderBottom: "1px solid rgba(255,255,255,0.08)" }}>
-                  <th style={{ textAlign: "left", padding: "10px 12px", color: "rgba(255,255,255,0.5)", fontSize: "11px", textTransform: "uppercase" }}>Curso</th>
-                  <th style={{ textAlign: "center", padding: "10px 12px", color: "rgba(255,255,255,0.5)", fontSize: "11px", textTransform: "uppercase" }}>Alunos Ativos</th>
-                  <th style={{ textAlign: "center", padding: "10px 12px", color: "rgba(255,255,255,0.5)", fontSize: "11px", textTransform: "uppercase" }}>Frequência</th>
-                  <th style={{ textAlign: "center", padding: "10px 12px", color: "rgba(255,255,255,0.5)", fontSize: "11px", textTransform: "uppercase" }}>Média de Notas</th>
-                  <th style={{ textAlign: "center", padding: "10px 12px", color: "rgba(255,255,255,0.5)", fontSize: "11px", textTransform: "uppercase" }}>Módulos Concluídos</th>
-                </tr>
-              </thead>
-              <tbody>
-                {m.performanceCursos.map((c) => (
-                  <tr key={c.cursoId} style={{ borderBottom: "1px solid rgba(255,255,255,0.04)" }}>
-                    <td style={{ padding: "14px 12px" }}>
-                      <VuiBox display="flex" alignItems="center" gap="10px">
-                        <VuiBox sx={{ width: 10, height: 10, borderRadius: "50%", background: c.cor, flexShrink: 0 }} />
-                        <VuiTypography variant="button" color="white" fontWeight="bold">
-                          {c.nome}
-                        </VuiTypography>
-                      </VuiBox>
-                    </td>
-                    <td style={{ textAlign: "center", padding: "14px 12px" }}>
-                      <VuiTypography variant="button" color="white">
-                        {c.alunosAtivos}
-                      </VuiTypography>
-                    </td>
-                    <td style={{ textAlign: "center", padding: "14px 12px" }}>
-                      <VuiTypography variant="button" color={c.frequencia >= 85 ? "success" : c.frequencia >= 70 ? "warning" : "error"} fontWeight="bold">
-                        {c.frequencia}%
-                      </VuiTypography>
-                    </td>
-                    <td style={{ textAlign: "center", padding: "14px 12px" }}>
-                      <VuiTypography variant="button" color="white">
-                        {c.mediaNota !== null ? `${c.mediaNota} / 10` : "—"}
-                      </VuiTypography>
-                    </td>
-                    <td style={{ textAlign: "center", padding: "14px 12px" }}>
-                      <VuiTypography variant="button" color="white" fontWeight="medium">
-                        {c.modulosConcluidos}
-                      </VuiTypography>
-                    </td>
-                  </tr>
-                ))}
-                {m.performanceCursos.length === 0 && (
-                  <tr>
-                    <td colSpan={5} style={{ textAlign: "center", padding: "24px" }}>
-                      <VuiTypography variant="caption" color="text">
-                        Nenhum curso cadastrado.
-                      </VuiTypography>
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </VuiBox>
-        </Card>
+        {/* 6. OCUPAÇÃO DA GRADE E TEMPO POR MÓDULO */}
+        <Grid container spacing={2.5} mb={3}>
+          <Grid item xs={12} lg={6}>
+            <OcupacaoGrade dados={ocupacao} />
+          </Grid>
+          <Grid item xs={12} lg={6}>
+            <TempoPorModulo cursos={tempoModulos} />
+          </Grid>
+        </Grid>
+
+        {/* 7. CARGA POR PROFESSOR (só com o recurso de professores ligado) */}
+        {recursos.professores && (
+          <Grid container spacing={2.5} mb={3}>
+            <Grid item xs={12}>
+              <CargaProfessor lista={carga} />
+            </Grid>
+          </Grid>
+        )}
+
+        {/* 8. FUNIL DAS EXPERIMENTAIS E CONCLUSÕES/CERTIFICADOS */}
+        <Grid container spacing={2.5} mb={3}>
+          <Grid item xs={12} lg={6}>
+            <FunilExperimentais funil={funil} onAbrirAluno={abrirAluno} />
+          </Grid>
+          <Grid item xs={12} lg={6}>
+            <ConclusoesCertificados dados={concl} serie={evolucao.pontos} descricao={evolucao.descricao} onAbrirAluno={abrirAluno} />
+          </Grid>
+        </Grid>
 
         {/* 4. ALUNOS EM RISCO DE EVASÃO (AÇÃO PREVENTIVA) */}
         <Card sx={{ mb: 3 }}>
@@ -465,7 +438,7 @@ export default function Relatorios() {
             <VuiBox>
               <VuiBox display="flex" alignItems="center" gap="8px">
                 <IoAlertCircleOutline color="#E31A1A" size="20px" />
-                <VuiTypography variant="lg" color="white" fontWeight="bold">
+                <VuiTypography variant="lg" color="white" fontWeight="bold" sx={{ display: "block" }}>
                   Alunos em Risco de Evasão
                 </VuiTypography>
               </VuiBox>
@@ -550,10 +523,10 @@ export default function Relatorios() {
 
         {/* 5. MOVIMENTAÇÕES & DETALHAMENTO EM 4 CARDS (2 POR LINHA) */}
         <VuiBox mt={3} mb={1.5}>
-          <VuiTypography variant="lg" color="white" fontWeight="bold">
+          <VuiTypography variant="lg" color="white" fontWeight="bold" sx={{ display: "block" }}>
             Movimentações & Detalhamento de Alunos
           </VuiTypography>
-          <VuiTypography variant="caption" color="text">
+          <VuiTypography variant="caption" color="text" sx={{ display: "block" }}>
             Acompanhamento de saídas, conclusões de curso e funil de conversão das aulas experimentais
           </VuiTypography>
         </VuiBox>
@@ -898,6 +871,9 @@ export default function Relatorios() {
             </Card>
           </Grid>
         </Grid>
+
+        {/* ÚLTIMO CARD: PERFORMANCE POR CURSO (accordion por tipo de curso, fechado por padrão) */}
+        <PerformanceAgrupada grupos={grupos} />
       </VuiBox>
     </DashboardLayout>
   );

@@ -167,3 +167,11 @@ O que mudou:
 A aba **Alunos** ganha duas colunas no fim: **Data de nascimento** (G) e **Gênero / Sexo** (H). Elas são criadas sozinhas na primeira leitura
 depois de colar o novo `Code.gs` e publicar uma nova versão da implantação (ou rode `prepararNovidades` uma vez). Alunos já cadastrados vão
 aparecer sem esses dados, porque eles nunca foram gravados: preencha pela ficha do aluno (Editar). A partir daí entram nos relatórios.
+
+## Build 1.1.3: relatórios novos e Maker 2
+- **Maker 2:** curso com nome "Maker 2" (ou "Maker II") vira um tipo próprio, dentro do grupo Robótica nos relatórios. A cor dele é escolhida em
+  Configurações > Cores dos cursos (o campo aparece assim que existir um curso Maker 2) e vale para a grade e a legenda.
+- **Relatórios:** novos cards de evolução mensal, saídas por motivo, faltas por dia e horário, reposições, ocupação da grade, carga por professor,
+  tempo médio por módulo, funil das experimentais e conclusões/certificados. Os números principais mostram seta de comparação com o período anterior
+  (não aparece em "Histórico completo"). A performance por curso agora é um accordion por tipo (Programação, Robótica, Inglês), fechado por padrão.
+- Nada muda na planilha nem no `Code.gs`: as análises usam os dados que o sistema já carrega.

@@ -142,7 +142,7 @@ const mapa = (lista) => {
 };
 
 /* ---------- cursos: tipo (cor/legenda) e área (filtro da grade e professores) ----------
-   Tipos: Programação, Robótica 1, Robótica 2 e Inglês (definidos pelo nome do curso; qualquer outro
+   Tipos: Programação, Robótica 1, Robótica 2, Maker 2 e Inglês (definidos pelo nome do curso; qualquer outro
    curso conta como Programação). Cada tipo tem uma entrada na legenda, com a cor do primeiro curso do tipo.
    Áreas: "Inglês" ou "Programação" (que reúne Programação e as Robóticas). O seletor da grade e a
    escala dos professores usam a área. */
@@ -164,11 +164,15 @@ export function areaDaEscala(cursoId, cursos) {
   return c ? categoriaDoCurso(c) : "";
 }
 
-export const TIPOS_CURSO = ["Programação", "Robótica 1", "Robótica 2", "Inglês"];
+export const TIPOS_CURSO = ["Programação", "Robótica 1", "Robótica 2", "Maker 2", "Inglês"];
+// Grupos usados nos relatórios: o Maker 2 fica no grupo de robótica, mas com cor própria (configurável em Configurações)
+export const GRUPOS_CURSO = ["Programação", "Robótica", "Inglês"];
+export const GRUPO_DO_TIPO = { "Programação": "Programação", "Robótica 1": "Robótica", "Robótica 2": "Robótica", "Maker 2": "Robótica", "Inglês": "Inglês" };
 
 export function tipoDoCurso(c) {
   const txt = `${(c && c.nome) || ""} ${(c && c.grupo) || ""}`.toLowerCase();
   if (/ingl[eê]s|english/.test(txt)) return "Inglês";
+  if (/maker\s*(2|ii)(\D|$)/.test(txt)) return "Maker 2";
   if (/rob[oó]tica/.test(txt)) return /(^|\D)2(\D|$)|\bii\b/.test(txt.replace(/rob[oó]tica/, "")) ? "Robótica 2" : "Robótica 1";
   return "Programação";
 }
