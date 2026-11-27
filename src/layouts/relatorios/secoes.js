@@ -553,17 +553,25 @@ export function CargaProfessor({ lista }) {
 CargaProfessor.propTypes = { lista: PropTypes.array.isRequired };
 
 /* 8. tempo médio por módulo */
+// Compacto: uma linha por módulo e altura máxima fixa (rolagem interna), para cursos com muitos módulos não esticarem o card.
 export function TempoPorModulo({ cursos }) {
   const [sel, setSel] = useState(null);
+  const [ordem, setOrdem] = useState("curso");
   const atual = cursos.find((c) => c.cursoId === sel) || cursos[0];
   const maximo = atual ? Math.max(1, ...atual.itens.map((i) => i.mediaDias || 0)) : 1;
+  const itens = useMemo(() => {
+    if (!atual) return [];
+    if (ordem === "curso") return atual.itens;
+    return [...atual.itens].sort((a, b) => (a.mediaDias === null) - (b.mediaDias === null) || (b.mediaDias || 0) - (a.mediaDias || 0));
+  }, [atual, ordem]);
+  const lentos = atual ? atual.itens.filter((i) => i.lento).length : 0;
   return (
     <CartaoSecao titulo="Tempo médio por módulo" subtitulo="Dias que os alunos levam em cada módulo (histórico completo)" icone={IoSpeedometerOutline} cor="#01B574">
       {!atual ? (
         <Vazio texto="Ainda não há módulos concluídos para calcular." />
       ) : (
         <>
-          <VuiBox display="flex" gap="6px" flexWrap="wrap" mb={2}>
+          <VuiBox display="flex" gap="6px" flexWrap="wrap" mb={1.5}>
             {cursos.map((c) => (
               <VuiButton
                 key={c.cursoId}
@@ -577,32 +585,48 @@ export function TempoPorModulo({ cursos }) {
               </VuiButton>
             ))}
           </VuiBox>
-          {atual.itens.map((i) => (
-            <VuiBox key={i.moduloId} mb={1.5}>
-              <VuiBox display="flex" justifyContent="space-between" gap="8px" mb="4px">
-                <VuiTypography variant="caption" color="white" fontWeight="medium" sx={{ fontSize: "12px" }}>
-                  {i.ordem}. {i.nome}
-                  {i.lento && (
-                    <span style={{ color: "#E31A1A", marginLeft: 6, fontSize: 10 }}>
-                      <IoAlertCircleOutline style={{ verticalAlign: "-2px" }} /> mais lento que a média
-                    </span>
-                  )}
-                </VuiTypography>
-                <VuiTypography variant="caption" color="text" sx={{ fontSize: "12px", whiteSpace: "nowrap" }}>
-                  <strong style={{ color: "#fff" }}>{i.mediaDias !== null ? `${fmt(i.mediaDias)} dias` : "—"}</strong>
-                </VuiTypography>
-              </VuiBox>
-              <VuiBox sx={{ width: "100%", height: 8, borderRadius: "4px", background: "rgba(255,255,255,0.08)", overflow: "hidden" }}>
-                <VuiBox sx={{ width: `${i.mediaDias ? Math.max(4, (i.mediaDias / maximo) * 100) : 0}%`, height: "100%", borderRadius: "4px", background: i.lento ? "#E31A1A" : atual.cor }} />
-              </VuiBox>
-              <VuiTypography variant="caption" color="text" sx={{ fontSize: "10px" }}>
-                {i.concluidos} concluído(s)
-                {i.andamento > 0 && ` · ${i.andamento} em andamento${i.atrasados ? ` (${i.atrasados} acima de 1,5× a média)` : ""}`}
-              </VuiTypography>
+          <VuiBox display="flex" justifyContent="space-between" alignItems="center" flexWrap="wrap" gap="8px" mb={1}>
+            <VuiTypography variant="caption" color="text" sx={{ fontSize: "11px" }}>
+              {atual.itens.length} módulo(s) · média do curso {fmt(atual.mediaCurso)} dias
+              {lentos > 0 && <span style={{ color: "#E31A1A" }}> · {lentos} mais lento(s) que a média</span>}
+            </VuiTypography>
+            <VuiBox display="flex" gap="4px">
+              {[["curso", "Ordem do curso"], ["lentos", "Mais lentos primeiro"]].map(([v, rotulo]) => (
+                <VuiButton
+                  key={v}
+                  size="small"
+                  color="info"
+                  variant={ordem === v ? "contained" : "text"}
+                  onClick={() => setOrdem(v)}
+                  sx={{ borderRadius: "7px", textTransform: "none", fontSize: "10px", px: 1, py: 0.2, minHeight: 0 }}
+                >
+                  {rotulo}
+                </VuiButton>
+              ))}
             </VuiBox>
-          ))}
-          <VuiTypography variant="caption" color="text" sx={{ display: "block", fontSize: "10px" }}>
-            Conta da conclusão do módulo anterior (ou do início da matrícula) até a conclusão do módulo. Média do curso: {fmt(atual.mediaCurso)} dias.
+          </VuiBox>
+          <VuiBox sx={{ maxHeight: 300, overflowY: "auto", pr: "6px" }}>
+            {itens.map((i) => (
+              <VuiBox
+                key={i.moduloId}
+                title={`${i.ordem}. ${i.nome}: ${i.mediaDias !== null ? `${fmt(i.mediaDias)} dias em média` : "sem conclusões"} · ${i.concluidos} concluído(s)${i.andamento > 0 ? ` · ${i.andamento} em andamento${i.atrasados ? ` (${i.atrasados} acima de 1,5× a média)` : ""}` : ""}`}
+                sx={{ display: "grid", gridTemplateColumns: "minmax(110px, 40%) 1fr 58px", gap: "10px", alignItems: "center", mb: "7px" }}
+              >
+                <VuiTypography variant="caption" color="white" fontWeight="medium" sx={{ fontSize: "11px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                  {i.ordem}. {i.nome}
+                </VuiTypography>
+                <VuiBox sx={{ height: 7, borderRadius: "4px", background: "rgba(255,255,255,0.08)", overflow: "hidden" }}>
+                  <VuiBox sx={{ width: `${i.mediaDias ? Math.max(4, (i.mediaDias / maximo) * 100) : 0}%`, height: "100%", borderRadius: "4px", background: i.lento ? "#E31A1A" : atual.cor }} />
+                </VuiBox>
+                <VuiTypography variant="caption" color="text" sx={{ fontSize: "11px", textAlign: "right", whiteSpace: "nowrap" }}>
+                  <strong style={{ color: i.lento ? "#E31A1A" : "#fff" }}>{i.mediaDias !== null ? `${fmt(i.mediaDias)} d` : "—"}</strong>
+                  {i.andamento > 0 && <span style={{ color: i.atrasados ? "#FFB547" : "inherit" }}> ·{i.andamento}</span>}
+                </VuiTypography>
+              </VuiBox>
+            ))}
+          </VuiBox>
+          <VuiTypography variant="caption" color="text" sx={{ display: "block", fontSize: "10px", mt: 1 }}>
+            Conta da conclusão do módulo anterior (ou do início da matrícula). “·N” é quantos alunos estão no módulo agora (laranja se algum passou de 1,5× a média). Passe o mouse na linha para ver os detalhes.
           </VuiTypography>
         </>
       )}

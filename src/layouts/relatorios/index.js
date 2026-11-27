@@ -53,6 +53,9 @@ import {
   TempoPorModulo,
 } from "layouts/relatorios/secoes";
 
+// Baixar em PDF desligado: a impressão do navegador não está saindo bem. Troque para true para religar o botão.
+const PDF_HABILITADO = false;
+
 const OPCOES_PERIODO = [
   { rotulo: "Últimos 30 dias", valor: 30 },
   { rotulo: "Últimos 90 dias", valor: 90 },
@@ -154,11 +157,13 @@ export default function Relatorios() {
               })}
             </VuiBox>
 
-            {/* Botão Baixar em PDF */}
-            <VuiButton size="small" color="info" variant="outlined" onClick={imprimirPdf} sx={{ borderRadius: "8px", textTransform: "none", fontWeight: "bold" }}>
-              <IoDownloadOutline size="16px" style={{ marginRight: 6 }} />
-              Baixar relatório em PDF
-            </VuiButton>
+            {/* Botão Baixar em PDF (desligado por PDF_HABILITADO) */}
+            {PDF_HABILITADO && (
+              <VuiButton size="small" color="info" variant="outlined" onClick={imprimirPdf} sx={{ borderRadius: "8px", textTransform: "none", fontWeight: "bold" }}>
+                <IoDownloadOutline size="16px" style={{ marginRight: 6 }} />
+                Baixar relatório em PDF
+              </VuiButton>
+            )}
           </VuiBox>
         </VuiBox>
 
