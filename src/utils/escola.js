@@ -553,7 +553,7 @@ export function descricaoModulo(modulosDoCurso, m) {
 }
 
 /* ---------- saída, trancamento e histórico ---------- */
-export const MOTIVOS_SAIDA = ["Mudança de cidade", "Financeiro", "Horário incompatível", "Insatisfação", "Foi para outra escola", "Outro"];
+export const MOTIVOS_SAIDA = ["Desistência", "Mudança de cidade", "Financeiro", "Horário incompatível", "Insatisfação", "Foi para outra escola", "Outro"];
 export const CONCEITOS = ["Excelente", "Muito bom", "Bom", "Regular", "Precisa melhorar"];
 
 export const rotuloSituacao = (status) => (status === "Saiu" ? "Saiu" : status === "Trancada" ? "Trancada" : status === "Concluída" ? "Concluída" : status === "Experimental" ? "Experimental" : "Ativa");
